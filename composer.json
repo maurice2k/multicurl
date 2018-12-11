@@ -1,0 +1,22 @@
+{
+    "name": "maurice2k/multicurl",
+    "description": "Object based asynchronous multi-curl wrapper",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Moritz Fain",
+            "email": "moritz@fain.io"
+        }
+    ],
+    "require": {
+        "php": "^7.1",
+        "ext-curl": "^7.1",
+    },
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4": {
+            "Maurice\\Multicurl\\": "src/"
+        }
+    }
+}
