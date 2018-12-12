@@ -50,11 +50,15 @@ class Channel
 
     /**
      * URL
+     *
+     * @var string
      */
     protected $url = '';
 
     /**
      * Curl options
+     *
+     * @var array
      */
     protected $curlOptions = [];
 

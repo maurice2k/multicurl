@@ -27,6 +27,11 @@ declare(strict_types = 1);
 
 namespace Maurice\Multicurl;
 
+/**
+ * Context info trait used in Manager and Channel
+ *
+ * @author Moritz Fain <moritz@fain.io>
+ */
 trait ContextInfo
 {
     /**
