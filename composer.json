@@ -11,7 +11,7 @@
     ],
     "require": {
         "php": "^7.1",
-        "ext-curl": "^7.1",
+        "ext-curl": "^7.1"
     },
     "minimum-stability": "dev",
     "autoload": {
