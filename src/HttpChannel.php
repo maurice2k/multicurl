@@ -54,27 +54,6 @@ class HttpChannel extends Channel
     protected $validMethods = [self::METHOD_GET, self::METHOD_POST];
 
     /**
-     * onReady callback
-     *
-     * @var callable
-     */
-    protected $onReadyCb;
-
-    /**
-     * onTimeout callback
-     *
-     * @var callable
-     */
-    protected $onTimeoutCb;
-
-    /**
-     * onError callback
-     *
-     * @var callable
-     */
-    protected $onErrorCb;
-
-    /**
      * HTTP method
      *
      * @var string
@@ -175,7 +154,7 @@ class HttpChannel extends Channel
      * Whether or not to follow redirects
      *
      * @param bool $follow
-     * @param int $maxRedirects
+     * @param int $maxRedirects Use -1 for an infinite number of redirects
      * @return void
      */
     public function setFollowRedirects(bool $follow = true, int $maxRedirects = 10)

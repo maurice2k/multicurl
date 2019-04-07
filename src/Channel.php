@@ -63,12 +63,33 @@ class Channel
     protected $curlOptions = [];
 
     /**
+     * onReady callback
+     *
+     * @var callable
+     */
+    protected $onReadyCb;
+
+    /**
+     * onTimeout callback
+     *
+     * @var callable
+     */
+    protected $onTimeoutCb;
+
+    /**
+     * onError callback
+     *
+     * @var callable
+     */
+    protected $onErrorCb;
+
+    /**
      * Sets URL
      *
      * @param string $url
      * @return void
      */
-    protected function setURL(string $url)
+    public function setURL(string $url)
     {
         $this->url = $url;
         $this->setCurlOption(CURLOPT_URL, $this->url);
@@ -87,7 +108,7 @@ class Channel
     /**
      * Sets total timeout in milliseconds
      *
-     * @param $int $timeout Total timeout in milliseconds (1000ms == 1s) or null if no timeout is required (default)
+     * @param int $timeout Total timeout in milliseconds (1000ms == 1s) or null if no timeout is required (default)
      * @return void
      */
     public function setTimeout(int $timeout = null)
@@ -100,7 +121,7 @@ class Channel
      *
      * INFO: This timeout includes the socket connection as well as the SSL handshake
      *
-     * @param $int $timeout Connection timeout in milliseconds (1000ms == 1s)
+     * @param int $timeout Connection timeout in milliseconds (1000ms == 1s)
      * @return void
      */
     public function setConnectionTimeout(int $timeout = null)
@@ -111,8 +132,8 @@ class Channel
     /**
      * Sets SSL certificate verification options
      *
-     * @param bool $verifyHostname Whether or not to verify/match the hostname from the certificat against the server hostname
-     * @param bool $verifyAgainstCA Whether or not the certicate chain is checked against curls CA store
+     * @param bool $verifyHostname Whether or not to verify/match the hostname from the certificate against the server hostname
+     * @param bool $verifyAgainstCA Whether or not the certificate chain is checked against curls CA store
      * @return void
      */
     public function setCertificateOptions(bool $verifyHostname = true, bool $verifyAgainstCA = true)
@@ -207,7 +228,7 @@ class Channel
     /**
      * Sets onError callback
      *
-     * @param callable $onError
+     * @param callable $onErrorCb
      * @return void
      */
     public function setOnErrorCallback(callable $onErrorCb)
@@ -220,11 +241,12 @@ class Channel
      *
      * @param array $info Output of curl_getinfo (@see https://php.net/curl_getinfo)
      * @param mixed $content
+     * @param Manager $manager Manager instance
      * @return void
      */
-    public function onReady(array $info, $content)
+    public function onReady(array $info, $content, Manager $manager)
     {
-        call_user_func($this->onReadyCb, $this, $info, $content);
+        call_user_func($this->onReadyCb, $this, $info, $content, $manager);
     }
 
     /**
@@ -246,10 +268,11 @@ class Channel
      * @param string $message Curl error message
      * @param integer $errno Curl error code (@see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
      * @param array $info Output of curl_getinfo (@see https://php.net/curl_getinfo)
+     * @param Manager $manager Manager instance
      * @return void
      */
-    public function onError(string $message, int $errno, array $info)
+    public function onError(string $message, int $errno, array $info, Manager $manager)
     {
-        call_user_func($this->onErrorCb, $this, $message, $errno, $info);
+        call_user_func($this->onErrorCb, $this, $message, $errno, $info, $manager);
     }
 }

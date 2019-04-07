@@ -160,7 +160,7 @@ class Manager
         $this->mh = curl_multi_init();
         $active = null;
 
-        $numAdded = $this->addNCurlResourcesToMultiCurl($this->maxConcurrency);
+        $this->addNCurlResourcesToMultiCurl($this->maxConcurrency);
 
         do {
             $mrc = curl_multi_exec($this->mh, $active);
@@ -191,7 +191,7 @@ class Manager
 
                             if ($multiInfo['result'] === CURLE_OK) {
                                 $content = curl_multi_getcontent($ch);
-                                $channel->onReady($info, $content);
+                                $channel->onReady($info, $content, $this);
 
                             } else if ($multiInfo['result'] === CURLE_OPERATION_TIMEOUTED) {
 
@@ -202,7 +202,7 @@ class Manager
                                 }
 
                             } else {
-                                $channel->onError(curl_strerror($multiInfo['result']), $multiInfo['result'], $info);
+                                $channel->onError(curl_strerror($multiInfo['result']), $multiInfo['result'], $info, $this);
                             }
 
                             unset($this->resourceChannelLookup[(int)$ch]);
