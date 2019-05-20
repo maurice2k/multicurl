@@ -55,7 +55,7 @@ trait ContextInfo
     /**
      * Returns context information
      *
-     * @return void
+     * @return mixed
      */
     public function getContext()
     {
