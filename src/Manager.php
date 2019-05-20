@@ -135,7 +135,7 @@ class Manager
     protected function onQueueLowWatermark()
     {
         if (isset($this->refillCallback)) {
-            $this->refillCallback(count($this->$channelQueue), $this->maxConcurrency);
+            $this->refillCallback(count($this->channelQueue), $this->maxConcurrency);
         }
     }
 
@@ -166,7 +166,7 @@ class Manager
             $mrc = curl_multi_exec($this->mh, $active);
         } while ($mrc === CURLM_CALL_MULTI_PERFORM);
 
-        while ($active && $mrc === CURLM_OK) {
+        do {
 
             if (curl_multi_select($this->mh) !== -1) {
 
@@ -194,7 +194,6 @@ class Manager
                                 $channel->onReady($info, $content, $this);
 
                             } else if ($multiInfo['result'] === CURLE_OPERATION_TIMEOUTED) {
-
                                 if ($info['connect_time'] > 0 && $info['pretransfer_time'] > 0) {
                                     $channel->onTimeout(Channel::TIMEOUT_TOTAL, (int)($info['total_time'] * 1000), $this);
                                 } else {
@@ -224,8 +223,10 @@ class Manager
                     }
 
                 } while ($mrc === CURLM_CALL_MULTI_PERFORM);
+
             }
-        }
+
+        } while ($active && $mrc === CURLM_OK);
 
         curl_multi_close($this->mh);
     }

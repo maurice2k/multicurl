@@ -1,7 +1,7 @@
 # maurice2k/multicurl
 
 `Maurice\Multicurl` provides an easy object-oriented interface for PHP's `curl_multi_*` functions.
-It's not only a wrapper but also provides the event loop, takes care that a given number of concurrent connections is not exceeded and also handles timeouts (connection and total timeouts). 
+It's not only a wrapper but also provides the event loop, takes care that a given number of concurrent connections is not exceeded and also handles timeouts (connection and total timeouts).
 
 `Maurice\Multicurl` basically consists of a `Manager` that orchestrates multiple `Channel`-based instances. In theory a channel can be of any connection type that cURL supports while practically the current version of `Maurice\Multicurl` only implements an `HttpChannel` on top of `Channel`.
 
@@ -23,6 +23,9 @@ $ composer require maurice2k/multicurl
 ### Basic example
 
 ```php
+
+use Maurice\Multicurl\{Manager, Channel, HttpChannel};
+
 $urls = [
     'https://www.google.com/',
     'https://www.facebook.com/',
@@ -75,9 +78,12 @@ Outputs something like this:
 
 In this example we're implementing a super simple web crawler that starts at Wikipedia's "Web Crawler" page and extracts at most five new pages per crawled page until 20 pages have been put into the manager (successfully crawled or not).
 
-A cleaner way would have been to create a `HttpCrawlChannel` (extending `HttpChannel`) that directly implements and overwrites HttpChannel's `onReady` method (as well as `onTimeout` and `onError`).  
+A cleaner way would have been to create a `HttpCrawlChannel` (extending `HttpChannel`) that directly implements and overwrites HttpChannel's `onReady` method (as well as `onTimeout` and `onError`).
 
 ```php
+
+use Maurice\Multicurl\{Manager, Channel, HttpChannel};
+
 $counter = new \stdClass();
 $counter->links = 20;
 
