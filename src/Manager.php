@@ -206,6 +206,7 @@ class Manager
 
                             unset($this->resourceChannelLookup[(int)$ch]);
                             curl_multi_remove_handle($this->mh, $ch);
+                            curl_close($ch);
                         }
 
                     } while ($msgInQueue > 0);
