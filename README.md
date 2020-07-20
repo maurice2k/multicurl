@@ -34,19 +34,23 @@ $urls = [
     'https://www.example.org/',
     'https://non-existant.this-is-a-dns-error.org/',
     'https://www.netflix.com/',
+    'https://www.microsoft.com/',
 ];
 
 $manager = new Manager(2);  // allow two concurrent connections
 
+// set defaults for all channels that are being instantiated using HttpChannel::create()
+HttpChannel::prototype()->setConnectionTimeout(200);
+HttpChannel::prototype()->setTimeout(5000);
+HttpChannel::prototype()->setFollowRedirects(true);
+HttpChannel::prototype()->setCookieJarFile('cookies.txt');
+
 foreach ($urls as $url) {
 
-    $chan = new HttpChannel($url);
-    $chan->setConnectionTimeout(500);
-    $chan->setTimeout(5000);
-    $chan->setFollowRedirects(true);
+    $chan = HttpChannel::create($url);
 
     $chan->setOnReadyCallback(function(Channel $channel, array $info, $content) {
-        echo "[X] Successfully loaded '" . $channel->getURL() . "' (" . strlen($content) . " bytes)\n";
+        echo "[X] Successfully loaded '" . $channel->getURL() . "' (" . strlen($content) . " bytes, status code " . $info['http_code'] . ")\n";
     });
 
     $chan->setOnTimeoutCallback(function(Channel $channel, int $timeoutType, int $elapsedMS, Manager $manager) {
@@ -65,13 +69,14 @@ $manager->run();
 
 Outputs something like this:
 ```
-[X] Successfully loaded 'https://www.google.com/' (226794 bytes)
-[X] Successfully loaded 'https://www.facebook.com/' (112308 bytes)
-[X] Successfully loaded 'https://www.ebay.com/' (296753 bytes)
-[X] Successfully loaded 'https://www.amazon.com/' (503678 bytes)
+[X] Successfully loaded 'https://www.google.com/' (47769 bytes, status code 200)
+[X] Successfully loaded 'https://www.facebook.com/' (136682 bytes, status code 200)
+[X] Successfully loaded 'https://www.ebay.com/' (287403 bytes, status code 200)
+[X] Successfully loaded 'https://www.amazon.com/' (102336 bytes, status code 200)
 [E] cURL error #6: 'Couldn't resolve host name' for 'https://non-existant.this-is-a-dns-error.org/'
-[X] Successfully loaded 'https://www.example.org/' (1270 bytes)
-[T] Connection timeout after 500 ms for 'https://www.netflix.com/'
+[T] Connection timeout after 200 ms for 'https://www.example.org/'
+[X] Successfully loaded 'https://www.microsoft.com/' (183702 bytes, status code 200)
+[X] Successfully loaded 'https://www.netflix.com/' (428858 bytes, status code 200)
 ```
 
 ### Adding new channels on the fly
@@ -94,6 +99,7 @@ $chan = new HttpChannel('https://en.wikipedia.org/wiki/Web_crawler');
 $chan->setConnectionTimeout(500);
 $chan->setTimeout(5000);
 $chan->setFollowRedirects(true);
+$chan->setCookieJarFile('cookies.txt');
 
 $chan->setOnReadyCallback(function(Channel $channel, array $info, $content, Manager $manager) {
     echo "[X] Successfully loaded '" . $channel->getURL() . "' (" . strlen($content) . " bytes)\n";

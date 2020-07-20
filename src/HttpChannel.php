@@ -4,7 +4,7 @@ declare(strict_types = 1);
 /**
  * Multicurl -- Object based asynchronous multi-curl wrapper
  *
- * Copyright (c) 2018 Moritz Fain
+ * Copyright (c) 2018-2020 Moritz Fain
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -65,7 +65,7 @@ class HttpChannel extends Channel
      *
      * @var string
      */
-    protected $data;
+    protected $body;
 
     /**
      * Content-Type for body data
@@ -79,39 +79,79 @@ class HttpChannel extends Channel
      *
      * @var array
      */
-    protected $headers;
+    protected $headers = [];
+
+    /**
+     * Prototype object for ::create factory
+     *
+     * @var self
+     */
+    protected static $prototype;
 
     /**
      * Constructor
      *
-     * @param string $url
-     * @param string $method
-     * @param string $data
-     * @param string $contentType
+     * @param string $url URL
+     * @param string $method HTTP Method (see self::METHOD_* consts)
+     * @param string $body Body (string or array)
+     * @param string $contentType Content-Type
      */
-    public function __construct(string $url, string $method = self::METHOD_GET, string $data = null, string $contentType = null)
+    public function __construct(string $url, string $method = self::METHOD_GET, string $body = null, string $contentType = null)
+    {
+        $this->setURL($url);
+        $this->setMethod($method);
+        $this->setBody($body, $contentType);
+    }
+
+    /**
+     * Cleanup on clone
+     *
+     * @return void
+     */
+    public function __clone()
+    {
+        $this->setURL('');
+        $this->setMethod(self::METHOD_GET);
+        $this->body = null;
+        $this->contentType = null;
+        $this->setHeader('content-type', null);
+        unset($this->curlOptions[CURLOPT_POST]);
+        unset($this->curlOptions[CURLOPT_POSTFIELDS]);
+        unset($this->curlOptions[CURLOPT_CUSTOMREQUEST]);
+    }
+
+    /**
+     * Sets HTTP method
+     *
+     * @param string $method HTTP Method (see self::METHOD_* consts)
+     * @return void
+     */
+    public function setMethod(string $method = self::METHOD_GET)
     {
         if (!in_array($method, $this->validMethods)) {
             throw new \InvalidArgumentException('Method "' . $method . '" not allowed; only ' . implode(', ', $this->validMethods));
         }
 
-        $this->setURL($url);
-        $this->setUserAgent('Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36');
         $this->method = $method;
-        $this->data = $data;
+    }
 
+    /**
+     * Sets body content and type
+     *
+     * @param mixed $body
+     * @param string $contentType
+     * @return void
+     */
+    public function setBody($body, string $contentType = null)
+    {
+        $contentType = strtolower((string)$contentType);
+        if (is_array($body) && ($contentType === 'text/json' || $contentType === 'application/json')) {
+            $body = json_encode($body);
+        }
+        $this->body = $body;
         if ($contentType != '') {
             $this->contentType = $contentType;
             $this->setHeader('content-type', $contentType);
-        }
-
-        if ($method === self::METHOD_POST) {
-            $this->setCurlOption(CURLOPT_POST, true);
-            $this->setCurlOption(CURLOPT_POSTFIELDS, $data);
-
-        } else if ($method === self::METHOD_GET && $data != '') {
-            $this->setCurlOption(CURLOPT_CUSTOMREQUEST, 'GET');
-            $this->setCurlOption(CURLOPT_POSTFIELDS, $data);
         }
     }
 
@@ -127,15 +167,21 @@ class HttpChannel extends Channel
     }
 
     /**
-     * Sets a header
+     * Sets or removes a header
      *
-     * @param string $name
-     * @param string $value
+     * @param string $name Name
+     * @param string $value Value (if null, header is removed)
      * @return void
      */
-    public function setHeader(string $name, string $value)
+    public function setHeader(string $name, string $value = null)
     {
-        $this->headers[strtolower($name)] = strtolower($name) . ': ' . $value;
+        if ($value === null) {
+            // remove header
+            unset($this->headers[strtolower($name)]);
+        } else {
+            $this->headers[strtolower($name)] = strtolower($name) . ': ' . $value;
+        }
+
         $this->setCurlOption(CURLOPT_HTTPHEADER, array_values($this->headers));
     }
 
@@ -161,5 +207,67 @@ class HttpChannel extends Channel
     {
         $this->setCurlOption(CURLOPT_FOLLOWLOCATION, $follow);
         $this->setCurlOption(CURLOPT_MAXREDIRS, $maxRedirects);
+    }
+
+    /**
+     * Sets cookie jar file for reading and writing
+     *
+     * @param string $cookieJar Cookie jar file path
+     * @return void
+     */
+    public function setCookieJarFile($cookieJar)
+    {
+        $this->setCurlOption(CURLOPT_COOKIEJAR, $cookieJar);
+        $this->setCurlOption(CURLOPT_COOKIEFILE, $cookieJar);
+    }
+
+    /**
+     * Returns all set curl options
+     *
+     * @return array
+     */
+    public function getCurlOptions() : array
+    {
+        if ($this->method === self::METHOD_POST) {
+            $this->setCurlOption(CURLOPT_POST, true);
+            $this->setCurlOption(CURLOPT_POSTFIELDS, $this->body);
+
+        } else if ($this->method === self::METHOD_GET && $this->body != '') {
+            $this->setCurlOption(CURLOPT_CUSTOMREQUEST, 'GET');
+            $this->setCurlOption(CURLOPT_POSTFIELDS, $this->body);
+        }
+
+        return parent::getCurlOptions();
+    }
+
+    /**
+     * Returns static prototype object
+     *
+     * @return self
+     */
+    public static function prototype() : self
+    {
+        if (static::$prototype === null) {
+            static::$prototype = new self('');
+        }
+
+        return static::$prototype;
+    }
+
+    /**
+     * Static factory
+     *
+     * @param string $url URL
+     * @param string $method HTTP Method (see self::METHOD_* consts)
+     * @param string $body Body (string or array)
+     * @param string $contentType Content-Type
+     */
+    public static function create(string $url, string $method = self::METHOD_GET, string $body = null, string $contentType = null)
+    {
+        $httpChan = clone(self::prototype());
+        $httpChan->setURL($url);
+        $httpChan->setMethod($method);
+        $httpChan->setBody($body, $contentType);
+        return $httpChan;
     }
 }

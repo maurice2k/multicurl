@@ -4,7 +4,7 @@ declare(strict_types = 1);
 /**
  * Multicurl -- Object based asynchronous multi-curl wrapper
  *
- * Copyright (c) 2018 Moritz Fain
+ * Copyright (c) 2018-2020 Moritz Fain
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -135,7 +135,7 @@ class Manager
     protected function onQueueLowWatermark()
     {
         if (isset($this->refillCallback)) {
-            $this->refillCallback(count($this->channelQueue), $this->maxConcurrency);
+            call_user_func($this->refillCallback, count($this->channelQueue), $this->maxConcurrency);
         }
     }
 

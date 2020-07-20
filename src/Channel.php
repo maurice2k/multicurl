@@ -4,7 +4,7 @@ declare(strict_types = 1);
 /**
  * Multicurl -- Object based asynchronous multi-curl wrapper
  *
- * Copyright (c) 2018 Moritz Fain
+ * Copyright (c) 2018-2020 Moritz Fain
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -84,6 +84,13 @@ class Channel
     protected $onErrorCb;
 
     /**
+     * Connection timeout
+     *
+     * @var int
+     */
+    protected $connectionTimeout;
+
+    /**
      * Sets URL
      *
      * @param string $url
@@ -127,6 +134,36 @@ class Channel
     public function setConnectionTimeout(int $timeout = null)
     {
         $this->setCurlOption(CURLOPT_CONNECTTIMEOUT_MS, $timeout);
+        $this->connectionTimeout = (int)$timeout;
+    }
+
+    /**
+     * Returns the connection timeout in milliseconds
+     *
+     * The default cURL timeout is 300,000 milliseconds
+     * @see https://curl.haxx.se/libcurl/c/CURLOPT_CONNECTTIMEOUT_MS.html
+     *
+     * @return integer
+     */
+    public function getConnectionTimeout() : int
+    {
+        return $this->connectionTimeout === 0 ? 300000 : $this->connectionTimeout;
+    }
+
+    /**
+     * Enables/disables verbosity
+     *
+     * @param boolean $verbose true/false
+     * @param resource $outputFileHandle Either a file handle or NULL to print to STDERR
+     * @return void
+     */
+    public function setVerbose(bool $verbose = true, $outputFileHandle = null)
+    {
+        $this->setCurlOption(CURLOPT_VERBOSE, $verbose);
+
+        if (is_resource($outputFileHandle) && get_resource_type($outputFileHandle) === 'stream') {
+            $this->setCurlOption(CURLOPT_STDERR, $outputFileHandle);
+        }
     }
 
     /**
@@ -206,7 +243,7 @@ class Channel
     /**
      * Sets onReady callback
      *
-     * @param callable $onReadyCb
+     * @param callable $onReadyCb function(Channel $channel, array $info, $content, Manager $manager)
      * @return void
      */
     public function setOnReadyCallback(callable $onReadyCb)
@@ -217,7 +254,7 @@ class Channel
     /**
      * Sets onTimeout callback
      *
-     * @param callable $onTimeoutCb
+     * @param callable $onTimeoutCb function(Channel $channel, int $timeoutType, int $elapsedMS, Manager $manager)
      * @return void
      */
     public function setOnTimeoutCallback(callable $onTimeoutCb)
@@ -228,7 +265,7 @@ class Channel
     /**
      * Sets onError callback
      *
-     * @param callable $onErrorCb
+     * @param callable $onErrorCb function(Channel $channel, string $message, $errno, array $info, Manager $manager)
      * @return void
      */
     public function setOnErrorCallback(callable $onErrorCb)
