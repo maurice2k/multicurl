@@ -4,7 +4,7 @@ declare(strict_types = 1);
 /**
  * Multicurl -- Object based asynchronous multi-curl wrapper
  *
- * Copyright (c) 2018-2020 Moritz Fain
+ * Copyright (c) 2018-2021 Moritz Fain
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -41,7 +41,7 @@ class Manager
      *
      * @var int
      */
-    protected $maxConcurrency = null;
+    protected $maxConcurrency = 10;
 
     /**
      * Channel queue
@@ -84,9 +84,24 @@ class Manager
     /**
      * Multi-Curl handle
      *
-     * @var resource
+     * @var \CurlMultiHandle
      */
     protected $mh;
+
+    /**
+     * Delay queue
+     *
+     * @var array
+     */
+    protected $delayQueue = [];
+
+    /**
+     * Is delay queue sorted?
+     *
+     * @var bool
+     */
+    protected $delayQueueSorted = false;
+
 
     /**
      * Constructor
@@ -103,10 +118,17 @@ class Manager
      *
      * @param Channel $channel
      * @param bool $unshift Whether to add the channel to the beginning of the queue
+     * @param float $minDelay Minimum delay (in seconds) before channel is getting active
      * @return void
      */
-    public function addChannel(Channel $channel, bool $unshift = false)
+    public function addChannel(Channel $channel, bool $unshift = false, $minDelay = 0.0)
     {
+        if ($minDelay > 0) {
+            $this->delayQueue[] = [$channel, $unshift, microtime(true) + $minDelay];
+            $this->delayQueueSorted = false;
+            return;
+        }
+
         if ($unshift) {
             array_unshift($this->channelQueue, $channel);
             return;
@@ -158,8 +180,9 @@ class Manager
     public function run()
     {
         $this->mh = curl_multi_init();
-        $active = null;
 
+        loop:
+        $active = null;
         $this->addNCurlResourcesToMultiCurl($this->maxConcurrency);
 
         do {
@@ -168,7 +191,7 @@ class Manager
 
         do {
 
-            if (curl_multi_select($this->mh) !== -1) {
+            if (curl_multi_select($this->mh, (count($this->delayQueue) > 0 ? 0.1 : 1.0)) !== -1) {
 
                 do {
 
@@ -211,6 +234,8 @@ class Manager
 
                     } while ($msgInQueue > 0);
 
+                    $this->processDelayQueue();
+
                     // Check queue low watermark
                     if (count($this->channelQueue) < $this->maxConcurrency * $this->lowWatermarkFactor) {
                         $this->onQueueLowWatermark();
@@ -229,7 +254,56 @@ class Manager
 
         } while ($active && $mrc === CURLM_OK);
 
+        $delayToFirstChannel = $this->processDelayQueue();
+        if ($delayToFirstChannel !== null) {
+            if ($delayToFirstChannel > 0) {
+                usleep($delayToFirstChannel);
+            }
+
+            goto loop;
+        }
+
         curl_multi_close($this->mh);
+    }
+
+
+    /**
+     * Processes delay queue and adds due channels to the standard queue
+     *
+     * @return int|null Returns either null if there are no pending channels
+     * in the delay queue or the relative delay in microseconds to the first
+     * channel in the delay queue
+     */
+    protected function processDelayQueue(): ?int
+    {
+        $delayQueueCount = count($this->delayQueue);
+        if ($delayQueueCount == 0) {
+            return null;
+        }
+
+        if (!$this->delayQueueSorted) {
+            usort($this->delayQueue, function($a, $b) { return $a[2] - $b[2]; });
+            $this->delayQueueSorted = true;
+        }
+
+        $now = microtime(true);
+        $added = 0;
+        for ($i = 0; $i < $delayQueueCount; $i++) {
+            if ($this->delayQueue[$i][2] > $now) {
+                break;
+            }
+            $this->addChannel($this->delayQueue[$i][0], $this->delayQueue[$i][1]);
+            $added++;
+        }
+
+        $delayToFirstChannel = (int)(($this->delayQueue[0][2] - $now) * 1000000);
+
+        if ($added > 0) {
+            // remove added channels from delay queue
+            array_splice($this->delayQueue, 0, $added);
+        }
+
+        return $delayToFirstChannel;
     }
 
     /**
@@ -238,7 +312,7 @@ class Manager
      * @param integer $number Maximum number of channels to add
      * @return int The number of effectively added channels
      */
-    protected function addNCurlResourcesToMultiCurl(int $number)
+    protected function addNCurlResourcesToMultiCurl(int $number): int
     {
         $added = 0;
         foreach (array_splice($this->channelQueue, 0, $number) as $channel) {
@@ -255,7 +329,7 @@ class Manager
      * Creates curl channel resource from Channel instance
      *
      * @param Channel $channel
-     * @return resource
+     * @return \CurlHandle
      */
     protected function createCurlResourceFromChannel(Channel $channel)
     {
