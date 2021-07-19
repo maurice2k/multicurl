@@ -39,7 +39,7 @@ trait ContextInfo
      *
      * @var mixed
      */
-    protected $context = null;
+    protected $context;
 
     /**
      * Sets context information
@@ -47,7 +47,7 @@ trait ContextInfo
      * @param mixed $context
      * @return void
      */
-    public function setContext($context)
+    public function setContext($context): void
     {
         $this->context = $context;
     }
@@ -55,7 +55,7 @@ trait ContextInfo
     /**
      * Returns context information
      *
-     * @return void
+     * @return mixed
      */
     public function getContext()
     {

@@ -1,7 +1,7 @@
 # maurice2k/multicurl
 
 `Maurice\Multicurl` provides an easy object-oriented interface for PHP's `curl_multi_*` functions.
-It's not only a wrapper but also provides the event loop, takes care that a given number of concurrent connections is not exceeded and also handles timeouts (connection and total timeouts). 
+It's not only a wrapper but also provides the event loop, takes care that a given number of concurrent connections is not exceeded and also handles timeouts (connection and total timeouts).
 
 `Maurice\Multicurl` basically consists of a `Manager` that orchestrates multiple `Channel`-based instances. In theory a channel can be of any connection type that cURL supports while practically the current version of `Maurice\Multicurl` only implements an `HttpChannel` on top of `Channel`.
 
@@ -23,6 +23,9 @@ $ composer require maurice2k/multicurl
 ### Basic example
 
 ```php
+
+use Maurice\Multicurl\{Manager, Channel, HttpChannel};
+
 $urls = [
     'https://www.google.com/',
     'https://www.facebook.com/',
@@ -31,19 +34,23 @@ $urls = [
     'https://www.example.org/',
     'https://non-existant.this-is-a-dns-error.org/',
     'https://www.netflix.com/',
+    'https://www.microsoft.com/',
 ];
 
 $manager = new Manager(2);  // allow two concurrent connections
 
+// set defaults for all channels that are being instantiated using HttpChannel::create()
+HttpChannel::prototype()->setConnectionTimeout(200);
+HttpChannel::prototype()->setTimeout(5000);
+HttpChannel::prototype()->setFollowRedirects(true);
+HttpChannel::prototype()->setCookieJarFile('cookies.txt');
+
 foreach ($urls as $url) {
 
-    $chan = new HttpChannel($url);
-    $chan->setConnectionTimeout(500);
-    $chan->setTimeout(5000);
-    $chan->setFollowRedirects(true);
+    $chan = HttpChannel::create($url);
 
     $chan->setOnReadyCallback(function(Channel $channel, array $info, $content) {
-        echo "[X] Successfully loaded '" . $channel->getURL() . "' (" . strlen($content) . " bytes)\n";
+        echo "[X] Successfully loaded '" . $channel->getURL() . "' (" . strlen($content) . " bytes, status code " . $info['http_code'] . ")\n";
     });
 
     $chan->setOnTimeoutCallback(function(Channel $channel, int $timeoutType, int $elapsedMS, Manager $manager) {
@@ -62,22 +69,26 @@ $manager->run();
 
 Outputs something like this:
 ```
-[X] Successfully loaded 'https://www.google.com/' (226794 bytes)
-[X] Successfully loaded 'https://www.facebook.com/' (112308 bytes)
-[X] Successfully loaded 'https://www.ebay.com/' (296753 bytes)
-[X] Successfully loaded 'https://www.amazon.com/' (503678 bytes)
+[X] Successfully loaded 'https://www.google.com/' (47769 bytes, status code 200)
+[X] Successfully loaded 'https://www.facebook.com/' (136682 bytes, status code 200)
+[X] Successfully loaded 'https://www.ebay.com/' (287403 bytes, status code 200)
+[X] Successfully loaded 'https://www.amazon.com/' (102336 bytes, status code 200)
 [E] cURL error #6: 'Couldn't resolve host name' for 'https://non-existant.this-is-a-dns-error.org/'
-[X] Successfully loaded 'https://www.example.org/' (1270 bytes)
-[T] Connection timeout after 500 ms for 'https://www.netflix.com/'
+[T] Connection timeout after 200 ms for 'https://www.example.org/'
+[X] Successfully loaded 'https://www.microsoft.com/' (183702 bytes, status code 200)
+[X] Successfully loaded 'https://www.netflix.com/' (428858 bytes, status code 200)
 ```
 
 ### Adding new channels on the fly
 
 In this example we're implementing a super simple web crawler that starts at Wikipedia's "Web Crawler" page and extracts at most five new pages per crawled page until 20 pages have been put into the manager (successfully crawled or not).
 
-A cleaner way would have been to create a `HttpCrawlChannel` (extending `HttpChannel`) that directly implements and overwrites HttpChannel's `onReady` method (as well as `onTimeout` and `onError`).  
+A cleaner way would have been to create a `HttpCrawlChannel` (extending `HttpChannel`) that directly implements and overwrites HttpChannel's `onReady` method (as well as `onTimeout` and `onError`).
 
 ```php
+
+use Maurice\Multicurl\{Manager, Channel, HttpChannel};
+
 $counter = new \stdClass();
 $counter->links = 20;
 
@@ -88,6 +99,7 @@ $chan = new HttpChannel('https://en.wikipedia.org/wiki/Web_crawler');
 $chan->setConnectionTimeout(500);
 $chan->setTimeout(5000);
 $chan->setFollowRedirects(true);
+$chan->setCookieJarFile('cookies.txt');
 
 $chan->setOnReadyCallback(function(Channel $channel, array $info, $content, Manager $manager) {
     echo "[X] Successfully loaded '" . $channel->getURL() . "' (" . strlen($content) . " bytes)\n";
