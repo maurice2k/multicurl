@@ -39,14 +39,14 @@ class Channel
      /**
      * Proxy type consts
      */
-    const PROXY_SOCKS5 = CURLPROXY_SOCKS5_HOSTNAME;
-    const PROXY_HTTP = CURLPROXY_HTTP;
+    public const PROXY_SOCKS5 = CURLPROXY_SOCKS5_HOSTNAME;
+    public const PROXY_HTTP = CURLPROXY_HTTP;
 
     /**
      * Timeout type consts
      */
-    const TIMEOUT_CONNECTION = 1;
-    const TIMEOUT_TOTAL = 2;
+    public const TIMEOUT_CONNECTION = 1;
+    public const TIMEOUT_TOTAL = 2;
 
     /**
      * URL
@@ -96,7 +96,7 @@ class Channel
      * @param string $url
      * @return void
      */
-    public function setURL(string $url)
+    public function setURL(string $url): void
     {
         $this->url = $url;
         $this->setCurlOption(CURLOPT_URL, $this->url);
@@ -118,7 +118,7 @@ class Channel
      * @param int $timeout Total timeout in milliseconds (1000ms == 1s) or null if no timeout is required (default)
      * @return void
      */
-    public function setTimeout(int $timeout = null)
+    public function setTimeout(int $timeout = null): void
     {
         $this->setCurlOption(CURLOPT_TIMEOUT_MS, $timeout);
     }
@@ -131,7 +131,7 @@ class Channel
      * @param int $timeout Connection timeout in milliseconds (1000ms == 1s)
      * @return void
      */
-    public function setConnectionTimeout(int $timeout = null)
+    public function setConnectionTimeout(int $timeout = null): void
     {
         $this->setCurlOption(CURLOPT_CONNECTTIMEOUT_MS, $timeout);
         $this->connectionTimeout = (int)$timeout;
@@ -157,7 +157,7 @@ class Channel
      * @param resource $outputFileHandle Either a file handle or NULL to print to STDERR
      * @return void
      */
-    public function setVerbose(bool $verbose = true, $outputFileHandle = null)
+    public function setVerbose(bool $verbose = true, $outputFileHandle = null): void
     {
         $this->setCurlOption(CURLOPT_VERBOSE, $verbose);
 
@@ -173,7 +173,7 @@ class Channel
      * @param bool $verifyAgainstCA Whether or not the certificate chain is checked against curls CA store
      * @return void
      */
-    public function setCertificateOptions(bool $verifyHostname = true, bool $verifyAgainstCA = true)
+    public function setCertificateOptions(bool $verifyHostname = true, bool $verifyAgainstCA = true): void
     {
         $this->setCurlOption(CURLOPT_SSL_VERIFYHOST, $verifyHostname ? 2 : 0);
         $this->setCurlOption(CURLOPT_SSL_VERIFYPEER, $verifyAgainstCA);
@@ -186,7 +186,7 @@ class Channel
      * @param string $password
      * @return void
      */
-    public function setAuthentication(string $username, string $password)
+    public function setAuthentication(string $username, string $password): void
     {
         $this->setCurlOption(CURLOPT_USERPWD, $username . ':' . $password);
     }
@@ -200,7 +200,7 @@ class Channel
      * @param string $username Username (or null if not applicable)
      * @param string $password Password (or null if not applicable)
      */
-    public function setProxy(int $type, string $host, int $port, string $username = null, string $password = null)
+    public function setProxy(int $type, string $host, int $port, string $username = null, string $password = null): void
     {
         if ($type === self::PROXY_SOCKS5) {
             $this->setCurlOption(CURLOPT_PROXYTYPE, CURLPROXY_SOCKS5_HOSTNAME);
@@ -225,7 +225,7 @@ class Channel
      * @param mixed $value
      * @return void
      */
-    public function setCurlOption($option, $value)
+    public function setCurlOption($option, $value): void
     {
         $this->curlOptions[$option] = $value;
     }
@@ -246,7 +246,7 @@ class Channel
      * @param callable $onReadyCb function(Channel $channel, array $info, $content, Manager $manager)
      * @return void
      */
-    public function setOnReadyCallback(callable $onReadyCb)
+    public function setOnReadyCallback(callable $onReadyCb): void
     {
         $this->onReadyCb = $onReadyCb;
     }
@@ -257,7 +257,7 @@ class Channel
      * @param callable $onTimeoutCb function(Channel $channel, int $timeoutType, int $elapsedMS, Manager $manager)
      * @return void
      */
-    public function setOnTimeoutCallback(callable $onTimeoutCb)
+    public function setOnTimeoutCallback(callable $onTimeoutCb): void
     {
         $this->onTimeoutCb = $onTimeoutCb;
     }
@@ -268,7 +268,7 @@ class Channel
      * @param callable $onErrorCb function(Channel $channel, string $message, $errno, array $info, Manager $manager)
      * @return void
      */
-    public function setOnErrorCallback(callable $onErrorCb)
+    public function setOnErrorCallback(callable $onErrorCb): void
     {
         $this->onErrorCb = $onErrorCb;
     }
@@ -281,7 +281,7 @@ class Channel
      * @param Manager $manager Manager instance
      * @return void
      */
-    public function onReady(array $info, $content, Manager $manager)
+    public function onReady(array $info, $content, Manager $manager): void
     {
         call_user_func($this->onReadyCb, $this, $info, $content, $manager);
     }
@@ -294,7 +294,7 @@ class Channel
      * @param Manager $manager Manager instance
      * @return void
      */
-    public function onTimeout(int $timeoutType, int $elapsedMS, Manager $manager)
+    public function onTimeout(int $timeoutType, int $elapsedMS, Manager $manager): void
     {
         call_user_func($this->onTimeoutCb, $this, $timeoutType, $elapsedMS, $manager);
     }
@@ -308,7 +308,7 @@ class Channel
      * @param Manager $manager Manager instance
      * @return void
      */
-    public function onError(string $message, int $errno, array $info, Manager $manager)
+    public function onError(string $message, int $errno, array $info, Manager $manager): void
     {
         call_user_func($this->onErrorCb, $this, $message, $errno, $info, $manager);
     }

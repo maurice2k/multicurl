@@ -37,14 +37,14 @@ class HttpChannel extends Channel
     /**
      * HTTP version consts
      */
-    const HTTP_1_1 = CURL_HTTP_VERSION_1_1;
-    const HTTP_2_0 = CURL_HTTP_VERSION_2_0;
+    public const HTTP_1_1 = CURL_HTTP_VERSION_1_1;
+    public const HTTP_2_0 = CURL_HTTP_VERSION_2_0;
 
     /**
      * HTTP method consts
      */
-    const METHOD_GET = 'GET';
-    const METHOD_POST = 'POST';
+    public const METHOD_GET = 'GET';
+    public const METHOD_POST = 'POST';
 
     /**
      * Valid HTTP methods
@@ -93,10 +93,10 @@ class HttpChannel extends Channel
      *
      * @param string $url URL
      * @param string $method HTTP Method (see self::METHOD_* consts)
-     * @param string $body Body (string or array)
+     * @param string|array|null $body Body (string or array)
      * @param string $contentType Content-Type
      */
-    public function __construct(string $url, string $method = self::METHOD_GET, string $body = null, string $contentType = null)
+    public function __construct(string $url, string $method = self::METHOD_GET, $body = null, string $contentType = null)
     {
         $this->setURL($url);
         $this->setMethod($method);
@@ -126,7 +126,7 @@ class HttpChannel extends Channel
      * @param string $method HTTP Method (see self::METHOD_* consts)
      * @return void
      */
-    public function setMethod(string $method = self::METHOD_GET)
+    public function setMethod(string $method = self::METHOD_GET): void
     {
         if (!in_array($method, $this->validMethods)) {
             throw new \InvalidArgumentException('Method "' . $method . '" not allowed; only ' . implode(', ', $this->validMethods));
@@ -142,14 +142,14 @@ class HttpChannel extends Channel
      * @param string $contentType
      * @return void
      */
-    public function setBody($body, string $contentType = null)
+    public function setBody($body, string $contentType = null): void
     {
         $contentType = strtolower((string)$contentType);
         if (is_array($body) && ($contentType === 'text/json' || $contentType === 'application/json')) {
             $body = json_encode($body);
         }
         $this->body = $body;
-        if ($contentType != '') {
+        if ($contentType !== '') {
             $this->contentType = $contentType;
             $this->setHeader('content-type', $contentType);
         }
@@ -161,7 +161,7 @@ class HttpChannel extends Channel
      * @param integer $version
      * @return void
      */
-    public function setHttpVersion(int $version = null)
+    public function setHttpVersion(int $version = null): void
     {
         $this->setCurlOption(CURLOPT_HTTP_VERSION, $version === null ? CURL_HTTP_VERSION_NONE : $version);
     }
@@ -173,7 +173,7 @@ class HttpChannel extends Channel
      * @param string $value Value (if null, header is removed)
      * @return void
      */
-    public function setHeader(string $name, string $value = null)
+    public function setHeader(string $name, string $value = null): void
     {
         if ($value === null) {
             // remove header
@@ -191,7 +191,7 @@ class HttpChannel extends Channel
      * @param string $userAgent
      * @return void
      */
-    public function setUserAgent(string $userAgent)
+    public function setUserAgent(string $userAgent): void
     {
         $this->setCurlOption(CURLOPT_USERAGENT, $userAgent);
     }
@@ -203,7 +203,7 @@ class HttpChannel extends Channel
      * @param int $maxRedirects Use -1 for an infinite number of redirects
      * @return void
      */
-    public function setFollowRedirects(bool $follow = true, int $maxRedirects = 10)
+    public function setFollowRedirects(bool $follow = true, int $maxRedirects = 10): void
     {
         $this->setCurlOption(CURLOPT_FOLLOWLOCATION, $follow);
         $this->setCurlOption(CURLOPT_MAXREDIRS, $maxRedirects);
@@ -215,7 +215,7 @@ class HttpChannel extends Channel
      * @param string $cookieJar Cookie jar file path
      * @return void
      */
-    public function setCookieJarFile($cookieJar)
+    public function setCookieJarFile($cookieJar): void
     {
         $this->setCurlOption(CURLOPT_COOKIEJAR, $cookieJar);
         $this->setCurlOption(CURLOPT_COOKIEFILE, $cookieJar);
@@ -262,7 +262,7 @@ class HttpChannel extends Channel
      * @param string $body Body (string or array)
      * @param string $contentType Content-Type
      */
-    public static function create(string $url, string $method = self::METHOD_GET, string $body = null, string $contentType = null)
+    public static function create(string $url, string $method = self::METHOD_GET, string $body = null, string $contentType = null): self
     {
         $httpChan = clone(self::prototype());
         $httpChan->setURL($url);
