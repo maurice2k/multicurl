@@ -121,7 +121,7 @@ class Manager
      * @param float $minDelay Minimum delay (in seconds) before channel is getting active
      * @return void
      */
-    public function addChannel(Channel $channel, bool $unshift = false, $minDelay = 0.0)
+    public function addChannel(Channel $channel, bool $unshift = false, $minDelay = 0.0): void
     {
         if ($minDelay > 0) {
             $this->delayQueue[] = [$channel, $unshift, microtime(true) + $minDelay];
@@ -142,7 +142,7 @@ class Manager
      * @param int $maxConcurrency
      * @return void
      */
-    public function setMaxConcurrency(int $maxConcurrency = 1)
+    public function setMaxConcurrency(int $maxConcurrency = 1): void
     {
         if ($maxConcurrency < 1) {
             $maxConcurrency = 1;
@@ -154,7 +154,7 @@ class Manager
     /**
      * Called when the queue reached the low watermark
      */
-    protected function onQueueLowWatermark()
+    protected function onQueueLowWatermark(): void
     {
         if (isset($this->refillCallback)) {
             call_user_func($this->refillCallback, count($this->channelQueue), $this->maxConcurrency);
@@ -167,7 +167,7 @@ class Manager
      * @param callable $refillCallback
      * @return void
      */
-    public function setRefillCallback(callable $refillCallback)
+    public function setRefillCallback(callable $refillCallback): void
     {
         $this->refillCallback = $refillCallback;
     }
@@ -177,7 +177,7 @@ class Manager
      *
      * @return void
      */
-    public function run()
+    public function run(): void
     {
         $this->mh = curl_multi_init();
 
