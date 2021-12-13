@@ -209,7 +209,7 @@ class Manager
 
                             $ch = $multiInfo['handle'];
                             /** @var Channel $channel */
-                            $channel = $this->resourceChannelLookup[(int)$ch];
+                            $channel = $this->resourceChannelLookup[self::toHandleIdentifier($ch)];
                             $info = curl_getinfo($ch);
 
                             if ($multiInfo['result'] === CURLE_OK) {
@@ -227,7 +227,7 @@ class Manager
                                 $channel->onError(curl_strerror($multiInfo['result']), $multiInfo['result'], $info, $this);
                             }
 
-                            unset($this->resourceChannelLookup[(int)$ch]);
+                            unset($this->resourceChannelLookup[self::toHandleIdentifier($ch)]);
                             curl_multi_remove_handle($this->mh, $ch);
                             curl_close($ch);
                         }
@@ -317,9 +317,9 @@ class Manager
         $added = 0;
         foreach (array_splice($this->channelQueue, 0, $number) as $channel) {
             /** @var Channel $channel */
-            $ch = $this->createCurlResourceFromChannel($channel);
+            $ch = $this->createCurlHandleFromChannel($channel);
             curl_multi_add_handle($this->mh, $ch);
-            $this->resourceChannelLookup[(int)$ch] = $channel;
+            $this->resourceChannelLookup[self::toHandleIdentifier($ch)] = $channel;
             $added++;
         }
         return $added;
@@ -329,9 +329,9 @@ class Manager
      * Creates curl channel resource from Channel instance
      *
      * @param Channel $channel
-     * @return \CurlHandle
+     * @return \CurlHandle|resource
      */
-    protected function createCurlResourceFromChannel(Channel $channel)
+    protected function createCurlHandleFromChannel(Channel $channel)
     {
         $ch = curl_init();
 
@@ -342,5 +342,13 @@ class Manager
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
         return $ch;
+    }
+
+    /**
+     * @param resource|\CurlHandle|\CurlMultiHandle|\CurlShareHandle $handle
+     */
+    public static function toHandleIdentifier($handle): int
+    {
+        return is_resource($handle) ? (int)$handle : spl_object_id($handle);
     }
 }
