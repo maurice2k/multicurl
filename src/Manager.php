@@ -208,6 +208,8 @@ class Manager
                         if ($multiInfo['msg'] === CURLMSG_DONE) {
 
                             $ch = $multiInfo['handle'];
+                            unset($multiInfo['handle']);
+
                             /** @var Channel $channel */
                             $channel = $this->resourceChannelLookup[self::toHandleIdentifier($ch)];
                             $info = curl_getinfo($ch);
@@ -215,7 +217,6 @@ class Manager
                             if ($multiInfo['result'] === CURLE_OK) {
                                 $content = curl_multi_getcontent($ch);
                                 $channel->onReady($info, $content, $this);
-
                             } else if ($multiInfo['result'] === CURLE_OPERATION_TIMEOUTED) {
                                 if ($info['connect_time'] > 0 && $info['pretransfer_time'] > 0) {
                                     $channel->onTimeout(Channel::TIMEOUT_TOTAL, (int)($info['total_time'] * 1000), $this);
@@ -230,6 +231,7 @@ class Manager
                             unset($this->resourceChannelLookup[self::toHandleIdentifier($ch)]);
                             curl_multi_remove_handle($this->mh, $ch);
                             curl_close($ch);
+                            unset($ch);
                         }
 
                     } while ($msgInQueue > 0);
@@ -264,8 +266,8 @@ class Manager
         }
 
         curl_multi_close($this->mh);
+        unset($this->mh);
     }
-
 
     /**
      * Processes delay queue and adds due channels to the standard queue
@@ -347,7 +349,7 @@ class Manager
     /**
      * @param resource|\CurlHandle|\CurlMultiHandle|\CurlShareHandle $handle
      */
-    public static function toHandleIdentifier($handle): int
+    protected static function toHandleIdentifier($handle): int
     {
         return is_resource($handle) ? (int)$handle : spl_object_id($handle);
     }
