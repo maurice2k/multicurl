@@ -51,42 +51,42 @@ class HttpChannel extends Channel
      *
      * @var array
      */
-    protected $validMethods = [self::METHOD_GET, self::METHOD_POST];
+    protected array $validMethods = [self::METHOD_GET, self::METHOD_POST];
 
     /**
      * HTTP method
      *
      * @var string
      */
-    protected $method;
+    protected string $method;
 
     /**
      * GET/POST body data
      *
-     * @var string
+     * @var string|null
      */
-    protected $body;
+    protected ?string $body = null;
 
     /**
      * Content-Type for body data
      *
-     * @var string
+     * @var string|null
      */
-    protected $contentType;
+    protected ?string $contentType = null;
 
     /**
      * Headers
      *
      * @var array
      */
-    protected $headers = [];
+    protected array $headers = [];
 
     /**
      * Prototype object for ::create factory
      *
-     * @var self
+     * @var HttpChannel
      */
-    protected static $prototype;
+    protected static HttpChannel $prototype;
 
     /**
      * Constructor
@@ -94,7 +94,7 @@ class HttpChannel extends Channel
      * @param string $url URL
      * @param string $method HTTP Method (see self::METHOD_* consts)
      * @param string|array|null $body Body (string or array)
-     * @param string $contentType Content-Type
+     * @param string|null $contentType Content-Type
      */
     public function __construct(string $url, string $method = self::METHOD_GET, $body = null, string $contentType = null)
     {
@@ -139,7 +139,7 @@ class HttpChannel extends Channel
      * Sets body content and type
      *
      * @param mixed $body
-     * @param string $contentType
+     * @param string|null $contentType
      * @return void
      */
     public function setBody($body, string $contentType = null): void
@@ -158,7 +158,7 @@ class HttpChannel extends Channel
     /**
      * Sets HTTP version
      *
-     * @param integer $version
+     * @param int|null $version
      * @return void
      */
     public function setHttpVersion(int $version = null): void
@@ -170,7 +170,7 @@ class HttpChannel extends Channel
      * Sets or removes a header
      *
      * @param string $name Name
-     * @param string $value Value (if null, header is removed)
+     * @param string|null $value Value (if null, header is removed)
      * @return void
      */
     public function setHeader(string $name, string $value = null): void
@@ -215,7 +215,7 @@ class HttpChannel extends Channel
      * @param string $cookieJar Cookie jar file path
      * @return void
      */
-    public function setCookieJarFile($cookieJar): void
+    public function setCookieJarFile(string $cookieJar): void
     {
         $this->setCurlOption(CURLOPT_COOKIEJAR, $cookieJar);
         $this->setCurlOption(CURLOPT_COOKIEFILE, $cookieJar);
@@ -259,8 +259,8 @@ class HttpChannel extends Channel
      *
      * @param string $url URL
      * @param string $method HTTP Method (see self::METHOD_* consts)
-     * @param string $body Body (string or array)
-     * @param string $contentType Content-Type
+     * @param string|null $body Body (string or array)
+     * @param string|null $contentType Content-Type
      */
     public static function create(string $url, string $method = self::METHOD_GET, string $body = null, string $contentType = null): self
     {
