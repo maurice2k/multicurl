@@ -84,7 +84,7 @@ class Manager
     /**
      * Multi-Curl handle
      *
-     * @var null|false|resource
+     * @var null|false|resource|\CurlHandle
      */
     protected $mh;
 
@@ -331,7 +331,7 @@ class Manager
      * Creates curl channel resource from Channel instance
      *
      * @param Channel $channel
-     * @return false|resource
+     * @return false|resource|\CurlHandle Depending on PHP version returns a resource or a CurlHandle
      * @noinspection PhpMissingReturnTypeInspection
      */
     protected function createCurlHandleFromChannel(Channel $channel)
