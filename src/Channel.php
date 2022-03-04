@@ -53,14 +53,14 @@ class Channel
      *
      * @var string
      */
-    protected $url = '';
+    protected string $url = '';
 
     /**
      * Curl options
      *
      * @var array
      */
-    protected $curlOptions = [];
+    protected array $curlOptions = [];
 
     /**
      * onReady callback
@@ -88,7 +88,7 @@ class Channel
      *
      * @var int
      */
-    protected $connectionTimeout;
+    protected int $connectionTimeout;
 
     /**
      * Sets URL
@@ -115,7 +115,7 @@ class Channel
     /**
      * Sets total timeout in milliseconds
      *
-     * @param int $timeout Total timeout in milliseconds (1000ms == 1s) or null if no timeout is required (default)
+     * @param int|null $timeout Total timeout in milliseconds (1000ms == 1s) or null if no timeout is required (default)
      * @return void
      */
     public function setTimeout(int $timeout = null): void
@@ -128,7 +128,7 @@ class Channel
      *
      * INFO: This timeout includes the socket connection as well as the SSL handshake
      *
-     * @param int $timeout Connection timeout in milliseconds (1000ms == 1s)
+     * @param int|null $timeout Connection timeout in milliseconds (1000ms == 1s)
      * @return void
      */
     public function setConnectionTimeout(int $timeout = null): void
@@ -143,7 +143,7 @@ class Channel
      * The default cURL timeout is 300,000 milliseconds
      * @see https://curl.haxx.se/libcurl/c/CURLOPT_CONNECTTIMEOUT_MS.html
      *
-     * @return integer
+     * @return int
      */
     public function getConnectionTimeout() : int
     {
@@ -197,8 +197,8 @@ class Channel
      * @param int $type Type of proxy (see self::PROXY_* consts)
      * @param string $host Proxy hostname
      * @param int $port Proxy port
-     * @param string $username Username (or null if not applicable)
-     * @param string $password Password (or null if not applicable)
+     * @param string|null $username Username (or null if not applicable)
+     * @param string|null $password Password (or null if not applicable)
      */
     public function setProxy(int $type, string $host, int $port, string $username = null, string $password = null): void
     {
@@ -225,7 +225,7 @@ class Channel
      * @param mixed $value
      * @return void
      */
-    public function setCurlOption($option, $value): void
+    public function setCurlOption(int $option, $value): void
     {
         $this->curlOptions[$option] = $value;
     }
@@ -289,8 +289,8 @@ class Channel
     /**
      * Called from Manager when curl channel is timed out
      *
-     * @param integer $timeoutType Type of timeout, either TIMEOUT_CONNECTION or TIMEOUT_TOTAL
-     * @param integer $elapsedMS Elapsed milliseconds (1000ms = 1s)
+     * @param int $timeoutType Type of timeout, either TIMEOUT_CONNECTION or TIMEOUT_TOTAL
+     * @param int $elapsedMS Elapsed milliseconds (1000ms = 1s)
      * @param Manager $manager Manager instance
      * @return void
      */
@@ -303,7 +303,7 @@ class Channel
      * Called from Manager when curl encountered an error other than timeout
      *
      * @param string $message Curl error message
-     * @param integer $errno Curl error code (@see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
+     * @param int $errno Curl error code (@see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
      * @param array $info Output of curl_getinfo (@see https://php.net/curl_getinfo)
      * @param Manager $manager Manager instance
      * @return void

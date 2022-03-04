@@ -41,21 +41,21 @@ class Manager
      *
      * @var int
      */
-    protected $maxConcurrency = 10;
+    protected int $maxConcurrency = 10;
 
     /**
      * Channel queue
      *
      * @var array
      */
-    protected $channelQueue = [];
+    protected array $channelQueue = [];
 
     /**
      * Lookup table for cURL resources to Channel instances
      *
      * @var array
      */
-    protected $resourceChannelLookup = [];
+    protected array $resourceChannelLookup = [];
 
     /**
      * Low watermark factor
@@ -63,9 +63,9 @@ class Manager
      * The low watermark for the channel queue is reached when there are less
      * than $maxConcurrency * $lowWatermarkFactor items left in the queue.
      *
-     * @var integer
+     * @var int
      */
-    protected $lowWatermarkFactor = 2;
+    protected int $lowWatermarkFactor = 2;
 
     /**
      * Queue refill callback
@@ -84,7 +84,7 @@ class Manager
     /**
      * Multi-Curl handle
      *
-     * @var \CurlMultiHandle
+     * @var null|false|resource|\CurlHandle
      */
     protected $mh;
 
@@ -93,20 +93,20 @@ class Manager
      *
      * @var array
      */
-    protected $delayQueue = [];
+    protected array $delayQueue = [];
 
     /**
      * Is delay queue sorted?
      *
      * @var bool
      */
-    protected $delayQueueSorted = false;
+    protected bool $delayQueueSorted = false;
 
 
     /**
      * Constructor
      *
-     * @param integer $maxConcurrency Max. concurrency (default 10)
+     * @param int $maxConcurrency Max. concurrency (default 10)
      */
     public function __construct(int $maxConcurrency = 10)
     {
@@ -121,9 +121,9 @@ class Manager
      * @param float $minDelay Minimum delay (in seconds) before channel is getting active
      * @return void
      */
-    public function addChannel(Channel $channel, bool $unshift = false, $minDelay = 0.0): void
+    public function addChannel(Channel $channel, bool $unshift = false, float $minDelay = 0.0): void
     {
-        if ($minDelay > 0) {
+        if ($minDelay > 0.0) {
             $this->delayQueue[] = [$channel, $unshift, microtime(true) + $minDelay];
             $this->delayQueueSorted = false;
             return;
@@ -311,7 +311,7 @@ class Manager
     /**
      * Adds channels from the queue to multi-curl
      *
-     * @param integer $number Maximum number of channels to add
+     * @param int $number Maximum number of channels to add
      * @return int The number of effectively added channels
      */
     protected function addNCurlResourcesToMultiCurl(int $number): int
@@ -331,7 +331,8 @@ class Manager
      * Creates curl channel resource from Channel instance
      *
      * @param Channel $channel
-     * @return \CurlHandle|resource
+     * @return false|resource|\CurlHandle Depending on PHP version returns a resource or a CurlHandle
+     * @noinspection PhpMissingReturnTypeInspection
      */
     protected function createCurlHandleFromChannel(Channel $channel)
     {
