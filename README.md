@@ -14,7 +14,7 @@ $ composer require maurice2k/multicurl
 
 ## Compatibility
 
-`Maurice\Multicurl` requires PHP 7.1 (or better) with the curl extension enabled.\
+`Maurice\Multicurl` requires PHP 7.4 (or better) with the curl extension enabled.
 
 
 ## Usage
