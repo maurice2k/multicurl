@@ -86,7 +86,7 @@ class HttpChannel extends Channel
      *
      * @var HttpChannel
      */
-    protected static HttpChannel $prototype;
+    protected static ?HttpChannel $prototype = null;
 
     /**
      * Constructor
@@ -259,10 +259,10 @@ class HttpChannel extends Channel
      *
      * @param string $url URL
      * @param string $method HTTP Method (see self::METHOD_* consts)
-     * @param string|null $body Body (string or array)
+     * @param string|array null $body Body (string or array)
      * @param string|null $contentType Content-Type
      */
-    public static function create(string $url, string $method = self::METHOD_GET, string $body = null, string $contentType = null): self
+    public static function create(string $url, string $method = self::METHOD_GET, $body = null, string $contentType = null): self
     {
         $httpChan = clone(self::prototype());
         $httpChan->setURL($url);
