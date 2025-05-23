@@ -1,0 +1,36 @@
+services:
+  # HTTP server for integration tests
+  httpbin:
+    image: kennethreitz/httpbin
+    ports:
+      - "8080:80"
+    networks:
+      - test-network
+
+  # Unit tests only (no external dependencies)
+  unit-tests:
+    build: .
+    volumes:
+      - .:/multicurl
+      - /multicurl/vendor
+    command: vendor/bin/phpunit --exclude-group integration
+    networks:
+      - test-network
+
+  # Integration tests with HTTP server
+  integration-tests:
+    build: .
+    volumes:
+      - .:/multicurl
+      - /multicurl/vendor
+    depends_on:
+      - httpbin
+    command: vendor/bin/phpunit --group integration
+    environment:
+      - TEST_HTTP_SERVER=httpbin:80
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge 

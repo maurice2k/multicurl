@@ -4,7 +4,7 @@ declare(strict_types = 1);
 /**
  * Multicurl -- Object based asynchronous multi-curl wrapper
  *
- * Copyright (c) 2018-2021 Moritz Fain
+ * Copyright (c) 2018-2025 Moritz Fain
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -49,21 +49,17 @@ class HttpChannel extends Channel
     /**
      * Valid HTTP methods
      *
-     * @var array
+     * @var array<int, string>
      */
     protected array $validMethods = [self::METHOD_GET, self::METHOD_POST];
 
     /**
      * HTTP method
-     *
-     * @var string
      */
     protected string $method;
 
     /**
      * GET/POST body data
-     *
-     * @var string|null
      */
     protected ?string $body = null;
 
@@ -77,7 +73,7 @@ class HttpChannel extends Channel
     /**
      * Headers
      *
-     * @var array
+     * @var array<array-key, string>
      */
     protected array $headers = [];
 
@@ -93,11 +89,15 @@ class HttpChannel extends Channel
      *
      * @param string $url URL
      * @param string $method HTTP Method (see self::METHOD_* consts)
-     * @param string|array|null $body Body (string or array)
+     * @param string|array<array-key, mixed>|null $body Body (string or array)
      * @param string|null $contentType Content-Type
      */
-    public function __construct(string $url, string $method = self::METHOD_GET, $body = null, string $contentType = null)
-    {
+    public function __construct(
+        string $url,
+        string $method = self::METHOD_GET,
+        string|array|null $body = null,
+        ?string $contentType = null
+    ) {
         $this->setURL($url);
         $this->setMethod($method);
         $this->setBody($body, $contentType);
@@ -105,10 +105,8 @@ class HttpChannel extends Channel
 
     /**
      * Cleanup on clone
-     *
-     * @return void
      */
-    public function __clone()
+    public function __clone(): void
     {
         $this->setURL('');
         $this->setMethod(self::METHOD_GET);
@@ -124,7 +122,6 @@ class HttpChannel extends Channel
      * Sets HTTP method
      *
      * @param string $method HTTP Method (see self::METHOD_* consts)
-     * @return void
      */
     public function setMethod(string $method = self::METHOD_GET): void
     {
@@ -138,17 +135,36 @@ class HttpChannel extends Channel
     /**
      * Sets body content and type
      *
-     * @param mixed $body
-     * @param string|null $contentType
-     * @return void
+     * @param string|array<array-key, mixed>|null $body
      */
-    public function setBody($body, string $contentType = null): void
+    public function setBody(string|array|null $body, ?string $contentType = null): void
     {
         $contentType = strtolower((string)$contentType);
-        if (is_array($body) && ($contentType === 'text/json' || $contentType === 'application/json')) {
-            $body = json_encode($body);
+        
+        if (is_array($body)) {
+
+            if (empty($contentType)) {
+                // default to JSON if no content type is set and we have an array
+                $contentType = 'application/json';
+            }
+
+            if ($contentType === 'text/json' || $contentType === 'application/json') {
+                // JSON encoding for arrays
+                $encoded = json_encode($body);
+                if ($encoded === false) {
+                    throw new \InvalidArgumentException('Failed to JSON encode array body');
+                }
+                $this->body = $encoded;
+            } elseif ($contentType === 'application/x-www-form-urlencoded') {
+                // Form URL encoding for arrays
+                $this->body = http_build_query($body);
+            } else {
+                throw new \InvalidArgumentException('Array body requires content type to be application/json, text/json, or application/x-www-form-urlencoded');
+            }
+        } else {
+            $this->body = $body;
         }
-        $this->body = $body;
+
         if ($contentType !== '') {
             $this->contentType = $contentType;
             $this->setHeader('content-type', $contentType);
@@ -157,11 +173,8 @@ class HttpChannel extends Channel
 
     /**
      * Sets HTTP version
-     *
-     * @param int|null $version
-     * @return void
      */
-    public function setHttpVersion(int $version = null): void
+    public function setHttpVersion(?int $version = null): void
     {
         $this->setCurlOption(CURLOPT_HTTP_VERSION, $version === null ? CURL_HTTP_VERSION_NONE : $version);
     }
@@ -171,9 +184,8 @@ class HttpChannel extends Channel
      *
      * @param string $name Name
      * @param string|null $value Value (if null, header is removed)
-     * @return void
      */
-    public function setHeader(string $name, string $value = null): void
+    public function setHeader(string $name, ?string $value = null): void
     {
         if ($value === null) {
             // remove header
@@ -187,9 +199,6 @@ class HttpChannel extends Channel
 
     /**
      * Sets user agent
-     *
-     * @param string $userAgent
-     * @return void
      */
     public function setUserAgent(string $userAgent): void
     {
@@ -199,9 +208,7 @@ class HttpChannel extends Channel
     /**
      * Whether or not to follow redirects
      *
-     * @param bool $follow
      * @param int $maxRedirects Use -1 for an infinite number of redirects
-     * @return void
      */
     public function setFollowRedirects(bool $follow = true, int $maxRedirects = 10): void
     {
@@ -213,7 +220,6 @@ class HttpChannel extends Channel
      * Sets cookie jar file for reading and writing
      *
      * @param string $cookieJar Cookie jar file path
-     * @return void
      */
     public function setCookieJarFile(string $cookieJar): void
     {
@@ -224,9 +230,9 @@ class HttpChannel extends Channel
     /**
      * Returns all set curl options
      *
-     * @return array
+     * @return array<array-key, mixed>
      */
-    public function getCurlOptions() : array
+    public function getCurlOptions(): array
     {
         if ($this->method === self::METHOD_POST) {
             $this->setCurlOption(CURLOPT_POST, true);
@@ -242,10 +248,8 @@ class HttpChannel extends Channel
 
     /**
      * Returns static prototype object
-     *
-     * @return self
      */
-    public static function prototype() : self
+    public static function prototype(): self
     {
         if (static::$prototype === null) {
             static::$prototype = new self('');
@@ -257,13 +261,14 @@ class HttpChannel extends Channel
     /**
      * Static factory
      *
-     * @param string $url URL
-     * @param string $method HTTP Method (see self::METHOD_* consts)
-     * @param string|array null $body Body (string or array)
-     * @param string|null $contentType Content-Type
+     * @param string|array<array-key, mixed>|null $body
      */
-    public static function create(string $url, string $method = self::METHOD_GET, $body = null, string $contentType = null): self
-    {
+    public static function create(
+        string $url,
+        string $method = self::METHOD_GET,
+        string|array|null $body = null,
+        ?string $contentType = null
+    ): self {
         $httpChan = clone(self::prototype());
         $httpChan->setURL($url);
         $httpChan->setMethod($method);

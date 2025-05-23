@@ -4,7 +4,7 @@ declare(strict_types = 1);
 /**
  * Multicurl -- Object based asynchronous multi-curl wrapper
  *
- * Copyright (c) 2018-2021 Moritz Fain
+ * Copyright (c) 2018-2025 Moritz Fain
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -50,51 +50,44 @@ class Channel
 
     /**
      * URL
-     *
-     * @var string
      */
     protected string $url = '';
 
     /**
      * Curl options
      *
-     * @var array
+     * @var array<array-key, mixed>
      */
     protected array $curlOptions = [];
 
     /**
      * onReady callback
      *
-     * @var callable
+     * @var \Closure(Channel, array<array-key, mixed>, mixed, Manager): void|null
      */
     protected $onReadyCb;
 
     /**
      * onTimeout callback
      *
-     * @var callable
+     * @var \Closure(Channel, int, int, Manager): void|null
      */
     protected $onTimeoutCb;
 
     /**
      * onError callback
      *
-     * @var callable
+     * @var \Closure(Channel, string, int, array<array-key, mixed>, Manager): void|null
      */
     protected $onErrorCb;
 
     /**
      * Connection timeout
-     *
-     * @var int
      */
     protected int $connectionTimeout;
 
     /**
      * Sets URL
-     *
-     * @param string $url
-     * @return void
      */
     public function setURL(string $url): void
     {
@@ -104,10 +97,8 @@ class Channel
 
     /**
      * Returns URL
-     *
-     * @return string
      */
-    public function getURL() : string
+    public function getURL(): string
     {
         return $this->url;
     }
@@ -116,9 +107,8 @@ class Channel
      * Sets total timeout in milliseconds
      *
      * @param int|null $timeout Total timeout in milliseconds (1000ms == 1s) or null if no timeout is required (default)
-     * @return void
      */
-    public function setTimeout(int $timeout = null): void
+    public function setTimeout(?int $timeout = null): void
     {
         $this->setCurlOption(CURLOPT_TIMEOUT_MS, $timeout);
     }
@@ -129,9 +119,8 @@ class Channel
      * INFO: This timeout includes the socket connection as well as the SSL handshake
      *
      * @param int|null $timeout Connection timeout in milliseconds (1000ms == 1s)
-     * @return void
      */
-    public function setConnectionTimeout(int $timeout = null): void
+    public function setConnectionTimeout(?int $timeout = null): void
     {
         $this->setCurlOption(CURLOPT_CONNECTTIMEOUT_MS, $timeout);
         $this->connectionTimeout = (int)$timeout;
@@ -140,22 +129,18 @@ class Channel
     /**
      * Returns the connection timeout in milliseconds
      *
-     * The default cURL timeout is 300,000 milliseconds
+     * The default cURL timeout is 300,000 milliseconds (300 seconds)
      * @see https://curl.haxx.se/libcurl/c/CURLOPT_CONNECTTIMEOUT_MS.html
-     *
-     * @return int
      */
-    public function getConnectionTimeout() : int
+    public function getConnectionTimeout(): int
     {
-        return $this->connectionTimeout === 0 ? 300000 : $this->connectionTimeout;
+        return $this->connectionTimeout === 0 ? 300_000 : $this->connectionTimeout;
     }
 
     /**
      * Enables/disables verbosity
      *
-     * @param boolean $verbose true/false
      * @param resource $outputFileHandle Either a file handle or NULL to print to STDERR
-     * @return void
      */
     public function setVerbose(bool $verbose = true, $outputFileHandle = null): void
     {
@@ -171,7 +156,6 @@ class Channel
      *
      * @param bool $verifyHostname Whether or not to verify/match the hostname from the certificate against the server hostname
      * @param bool $verifyAgainstCA Whether or not the certificate chain is checked against curls CA store
-     * @return void
      */
     public function setCertificateOptions(bool $verifyHostname = true, bool $verifyAgainstCA = true): void
     {
@@ -181,10 +165,6 @@ class Channel
 
     /**
      * Sets username and password
-     *
-     * @param string $username
-     * @param string $password
-     * @return void
      */
     public function setAuthentication(string $username, string $password): void
     {
@@ -195,12 +175,10 @@ class Channel
      * Sets options for proxy use
      *
      * @param int $type Type of proxy (see self::PROXY_* consts)
-     * @param string $host Proxy hostname
-     * @param int $port Proxy port
      * @param string|null $username Username (or null if not applicable)
      * @param string|null $password Password (or null if not applicable)
      */
-    public function setProxy(int $type, string $host, int $port, string $username = null, string $password = null): void
+    public function setProxy(int $type, string $host, int $port, ?string $username = null, ?string $password = null): void
     {
         if ($type === self::PROXY_SOCKS5) {
             $this->setCurlOption(CURLOPT_PROXYTYPE, CURLPROXY_SOCKS5_HOSTNAME);
@@ -220,12 +198,8 @@ class Channel
      * Sets a specific curl option
      *
      * @see https://php.net/curl_setopt
-     *
-     * @param int $option
-     * @param mixed $value
-     * @return void
      */
-    public function setCurlOption(int $option, $value): void
+    public function setCurlOption(int $option, mixed $value): void
     {
         $this->curlOptions[$option] = $value;
     }
@@ -233,9 +207,9 @@ class Channel
     /**
      * Returns all set curl options
      *
-     * @return array
+     * @return array<array-key, mixed>
      */
-    public function getCurlOptions() : array
+    public function getCurlOptions(): array
     {
         return $this->curlOptions;
     }
@@ -243,10 +217,9 @@ class Channel
     /**
      * Sets onReady callback
      *
-     * @param callable $onReadyCb function(Channel $channel, array $info, $content, Manager $manager)
-     * @return void
+     * @param \Closure(Channel, array<array-key, mixed>, mixed, Manager): void $onReadyCb
      */
-    public function setOnReadyCallback(callable $onReadyCb): void
+    public function setOnReadyCallback(\Closure $onReadyCb): void
     {
         $this->onReadyCb = $onReadyCb;
     }
@@ -254,10 +227,9 @@ class Channel
     /**
      * Sets onTimeout callback
      *
-     * @param callable $onTimeoutCb function(Channel $channel, int $timeoutType, int $elapsedMS, Manager $manager)
-     * @return void
+     * @param \Closure(Channel, int, int, Manager): void $onTimeoutCb
      */
-    public function setOnTimeoutCallback(callable $onTimeoutCb): void
+    public function setOnTimeoutCallback(\Closure $onTimeoutCb): void
     {
         $this->onTimeoutCb = $onTimeoutCb;
     }
@@ -265,10 +237,9 @@ class Channel
     /**
      * Sets onError callback
      *
-     * @param callable $onErrorCb function(Channel $channel, string $message, $errno, array $info, Manager $manager)
-     * @return void
+     * @param \Closure(Channel, string, int, array<array-key, mixed>, Manager): void $onErrorCb
      */
-    public function setOnErrorCallback(callable $onErrorCb): void
+    public function setOnErrorCallback(\Closure $onErrorCb): void
     {
         $this->onErrorCb = $onErrorCb;
     }
@@ -276,12 +247,9 @@ class Channel
     /**
      * Called from Manager when curl channel is ready and no error occured
      *
-     * @param array $info Output of curl_getinfo (@see https://php.net/curl_getinfo)
-     * @param mixed $content
-     * @param Manager $manager Manager instance
-     * @return void
+     * @param array<array-key, mixed> $info Output of curl_getinfo (@see https://php.net/curl_getinfo)
      */
-    public function onReady(array $info, $content, Manager $manager): void
+    public function onReady(array $info, mixed $content, Manager $manager): void
     {
         call_user_func($this->onReadyCb, $this, $info, $content, $manager);
     }
@@ -291,8 +259,6 @@ class Channel
      *
      * @param int $timeoutType Type of timeout, either TIMEOUT_CONNECTION or TIMEOUT_TOTAL
      * @param int $elapsedMS Elapsed milliseconds (1000ms = 1s)
-     * @param Manager $manager Manager instance
-     * @return void
      */
     public function onTimeout(int $timeoutType, int $elapsedMS, Manager $manager): void
     {
@@ -304,9 +270,7 @@ class Channel
      *
      * @param string $message Curl error message
      * @param int $errno Curl error code (@see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
-     * @param array $info Output of curl_getinfo (@see https://php.net/curl_getinfo)
-     * @param Manager $manager Manager instance
-     * @return void
+     * @param array<array-key, mixed> $info Output of curl_getinfo (@see https://php.net/curl_getinfo)
      */
     public function onError(string $message, int $errno, array $info, Manager $manager): void
     {

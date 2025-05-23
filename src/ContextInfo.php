@@ -4,7 +4,7 @@ declare(strict_types = 1);
 /**
  * Multicurl -- Object based asynchronous multi-curl wrapper
  *
- * Copyright (c) 2018 Moritz Fain
+ * Copyright (c) 2018-2025 Moritz Fain
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -43,21 +43,16 @@ trait ContextInfo
 
     /**
      * Sets context information
-     *
-     * @param mixed $context
-     * @return void
      */
-    public function setContext($context): void
+    public function setContext(mixed $context): void
     {
         $this->context = $context;
     }
 
     /**
      * Returns context information
-     *
-     * @return mixed
      */
-    public function getContext()
+    public function getContext(): mixed
     {
         return $this->context;
     }

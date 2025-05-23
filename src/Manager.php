@@ -4,7 +4,7 @@ declare(strict_types = 1);
 /**
  * Multicurl -- Object based asynchronous multi-curl wrapper
  *
- * Copyright (c) 2018-2021 Moritz Fain
+ * Copyright (c) 2018-2025 Moritz Fain
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,9 @@ declare(strict_types = 1);
 
 namespace Maurice\Multicurl;
 
+use CurlHandle;
+use CurlMultiHandle;
+
 /**
  * Manages the channel queue and concurrency limits
  *
@@ -38,22 +41,20 @@ class Manager
 
     /**
      * Maximum number of concurrent channels
-     *
-     * @var int
      */
     protected int $maxConcurrency = 10;
 
     /**
      * Channel queue
      *
-     * @var array
+     * @var array<array-key, Channel>
      */
     protected array $channelQueue = [];
 
     /**
      * Lookup table for cURL resources to Channel instances
      *
-     * @var array
+     * @var array<array-key, Channel>
      */
     protected array $resourceChannelLookup = [];
 
@@ -62,8 +63,6 @@ class Manager
      *
      * The low watermark for the channel queue is reached when there are less
      * than $maxConcurrency * $lowWatermarkFactor items left in the queue.
-     *
-     * @var int
      */
     protected int $lowWatermarkFactor = 2;
 
@@ -77,28 +76,24 @@ class Manager
      *   - int $queueSize
      *   - int $maxConcurrency
      *
-     * @var callable
+     * @var callable(int $queueSize, int $maxConcurrency): mixed|null
      */
-    protected $refillCallback;
+    protected $refillCallback = null;
 
     /**
      * Multi-Curl handle
-     *
-     * @var null|false|resource|\CurlHandle
      */
-    protected $mh;
+    protected \CurlMultiHandle $mh;
 
     /**
      * Delay queue
      *
-     * @var array
+     * @var array<array-key, array{0: Channel, 1: bool, 2: float}>
      */
     protected array $delayQueue = [];
 
     /**
      * Is delay queue sorted?
-     *
-     * @var bool
      */
     protected bool $delayQueueSorted = false;
 
@@ -119,7 +114,6 @@ class Manager
      * @param Channel $channel
      * @param bool $unshift Whether to add the channel to the beginning of the queue
      * @param float $minDelay Minimum delay (in seconds) before channel is getting active
-     * @return void
      */
     public function addChannel(Channel $channel, bool $unshift = false, float $minDelay = 0.0): void
     {
@@ -138,9 +132,6 @@ class Manager
 
     /**
      * Sets maximum number of concurrent channels
-     *
-     * @param int $maxConcurrency
-     * @return void
      */
     public function setMaxConcurrency(int $maxConcurrency = 1): void
     {
@@ -164,8 +155,7 @@ class Manager
     /**
      * Sets refill queue callback
      *
-     * @param callable $refillCallback
-     * @return void
+     * @param callable(int $queueSize, int $maxConcurrency): mixed $refillCallback
      */
     public function setRefillCallback(callable $refillCallback): void
     {
@@ -174,8 +164,6 @@ class Manager
 
     /**
      * Process channels using multi-curl
-     *
-     * @return void
      */
     public function run(): void
     {
@@ -284,7 +272,7 @@ class Manager
         }
 
         if (!$this->delayQueueSorted) {
-            usort($this->delayQueue, function($a, $b) { return $a[2] - $b[2]; });
+            usort($this->delayQueue, function($a, $b) { return $a[2] <=> $b[2]; });
             $this->delayQueueSorted = true;
         }
 
@@ -329,12 +317,8 @@ class Manager
 
     /**
      * Creates curl channel resource from Channel instance
-     *
-     * @param Channel $channel
-     * @return false|resource|\CurlHandle Depending on PHP version returns a resource or a CurlHandle
-     * @noinspection PhpMissingReturnTypeInspection
      */
-    protected function createCurlHandleFromChannel(Channel $channel)
+    protected function createCurlHandleFromChannel(Channel $channel): \CurlHandle
     {
         $ch = curl_init();
 
@@ -348,10 +332,10 @@ class Manager
     }
 
     /**
-     * @param resource|\CurlHandle|\CurlMultiHandle|\CurlShareHandle $handle
+     * Converts a curl handle to a unique identifier
      */
-    protected static function toHandleIdentifier($handle): int
+    protected static function toHandleIdentifier(\CurlHandle $handle): int
     {
-        return is_resource($handle) ? (int)$handle : spl_object_id($handle);
+        return spl_object_id($handle);
     }
 }
