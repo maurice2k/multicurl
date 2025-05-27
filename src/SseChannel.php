@@ -28,32 +28,32 @@ declare(strict_types = 1);
 namespace Maurice\Multicurl;
 
 /**
- * Context info trait used in Manager and Channel
+ * SSE specific channel
  *
  * @author Moritz Fain <moritz@fain.io>
  */
-trait ContextInfo
+class SseChannel extends HttpChannel
 {
-    /**
-     * Context information; can be used to pass in arbitrary data
-     *
-     * @var mixed
-     */
-    protected $context;
+    use Sse\SseTrait;
 
-    /**
-     * Sets context information
-     */
-    public function setContext(mixed $context): void
-    {
-        $this->context = $context;
+    public function __construct(
+        string $url,
+        string $method = self::METHOD_GET,
+        string|array|null $body = null,
+        ?string $contentType = null
+    ) {
+        parent::__construct($url, $method, $body, $contentType);
+
+        // Initialize SSE headers and settings
+        $this->initializeSse();
     }
 
-    /**
-     * Returns context information
-     */
-    public function getContext(): mixed
+    public function __clone(): void
     {
-        return $this->context;
+        parent::__clone();
+
+        $this->currentEventData = '';
+        $this->currentEventName = '';
+        $this->currentEventId = '';
     }
 }

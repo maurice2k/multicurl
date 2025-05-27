@@ -6,6 +6,7 @@ namespace Maurice\Multicurl\Tests;
 use Maurice\Multicurl\Manager;
 use Maurice\Multicurl\HttpChannel;
 use Maurice\Multicurl\Channel;
+use Maurice\Multicurl\Helper\Stream;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -42,7 +43,8 @@ class TimeoutAndErrorTest extends TestCase
             ];
         });
         
-        $channel->setOnReadyCallback(function($channel, $info, $content) use (&$results) {
+        $channel->setOnReadyCallback(function($channel, $info, Stream $stream, $manager) use (&$results) {
+            $content = $stream->consume();
             $results[] = ['status' => $info['http_code'], 'content' => $content];
         });
         
@@ -81,7 +83,8 @@ class TimeoutAndErrorTest extends TestCase
             ];
         });
         
-        $channel->setOnReadyCallback(function($channel, $info, $content) use (&$results) {
+        $channel->setOnReadyCallback(function($channel, $info, Stream $stream, $manager) use (&$results) {
+            $content = $stream->consume();
             $results[] = ['status' => $info['http_code'], 'content' => $content];
         });
         
@@ -120,7 +123,8 @@ class TimeoutAndErrorTest extends TestCase
             ];
         });
         
-        $channel->setOnReadyCallback(function($channel, $info, $content) use (&$results) {
+        $channel->setOnReadyCallback(function($channel, $info, Stream $stream, $manager) use (&$results) {
+            $content = $stream->consume();
             $results[] = ['status' => $info['http_code'], 'content' => $content];
         });
         
@@ -178,7 +182,8 @@ class TimeoutAndErrorTest extends TestCase
                 ];
             });
             
-            $channel->setOnReadyCallback(function($channel, $info, $content) use (&$results, $channelId) {
+            $channel->setOnReadyCallback(function($channel, $info, Stream $stream, $manager) use (&$results, $channelId) {
+                $content = $stream->consume();
                 $results[$channelId] = ['status' => $info['http_code']];
             });
             

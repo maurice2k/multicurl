@@ -1,9 +1,9 @@
 services:
   # HTTP server for integration tests
   httpbin:
-    image: kennethreitz/httpbin
+    image: mccutchen/go-httpbin
     ports:
-      - "8080:80"
+      - "8080:8080"
     networks:
       - test-network
 
@@ -27,7 +27,7 @@ services:
       - httpbin
     command: vendor/bin/phpunit --group integration
     environment:
-      - TEST_HTTP_SERVER=httpbin:80
+      - TEST_HTTP_SERVER=httpbin:8080
     networks:
       - test-network
 

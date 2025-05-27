@@ -29,6 +29,7 @@ namespace Maurice\Multicurl;
 
 use CurlHandle;
 use CurlMultiHandle;
+use Maurice\Multicurl\Helper\ContextInfo;
 
 /**
  * Manages the channel queue and concurrency limits
@@ -204,7 +205,9 @@ class Manager
 
                             if ($multiInfo['result'] === CURLE_OK) {
                                 $content = curl_multi_getcontent($ch);
-                                $channel->onReady($info, $content, $this);
+
+                                $channel->onReady($info, $content ?? '', $this);
+
                             } else if ($multiInfo['result'] === CURLE_OPERATION_TIMEOUTED) {
                                 if ($info['connect_time'] > 0 && $info['pretransfer_time'] > 0) {
                                     $channel->onTimeout(Channel::TIMEOUT_TOTAL, (int)($info['total_time'] * 1000), $this);
@@ -216,9 +219,8 @@ class Manager
                                 $channel->onError(curl_strerror($multiInfo['result']), $multiInfo['result'], $info, $this);
                             }
 
-                            unset($this->resourceChannelLookup[self::toHandleIdentifier($ch)]);
-                            curl_multi_remove_handle($this->mh, $ch);
-                            curl_close($ch);
+                            // Remove channel from resource lookup
+                            $this->closeChannel($channel);
                             unset($ch);
                         }
 
@@ -316,7 +318,7 @@ class Manager
     }
 
     /**
-     * Creates curl channel resource from Channel instance
+     * Create CurlHandle from Channel instance
      */
     protected function createCurlHandleFromChannel(Channel $channel): \CurlHandle
     {
@@ -326,7 +328,18 @@ class Manager
             curl_setopt($ch, $option, $value);
         }
 
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        if ($channel->isStreamable()) {
+            // For streamable channels, don't return content and set up write callback
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
+            curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($ch, $data) use ($channel) {
+                return $channel->onStream($data, $this);
+            });
+        } else {
+            // Only set CURLOPT_RETURNTRANSFER for non-streamable channels
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        }
+
+        $channel->setCurlHandle($ch);
 
         return $ch;
     }
@@ -337,5 +350,29 @@ class Manager
     protected static function toHandleIdentifier(\CurlHandle $handle): int
     {
         return spl_object_id($handle);
+    }
+
+    /**
+     * Closes a specific channel and removes it from the multi-curl stack.
+     */
+    public function closeChannel(Channel $channel): void
+    {
+        $ch = $channel->getCurlHandle();
+
+        // If the handle is already null (e.g., channel already closed), do nothing.
+        if ($ch === null) {
+            return;
+        }
+
+        if (isset($this->resourceChannelLookup[self::toHandleIdentifier($ch)])) {
+            unset($this->resourceChannelLookup[self::toHandleIdentifier($ch)]);
+        }
+
+        if (isset($this->mh) && $this->mh instanceof \CurlMultiHandle) {
+            curl_multi_remove_handle($this->mh, $ch);
+        }
+
+        curl_close($ch);
+        $channel->setCurlHandle(null);
     }
 }

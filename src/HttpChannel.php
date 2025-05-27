@@ -104,21 +104,6 @@ class HttpChannel extends Channel
     }
 
     /**
-     * Cleanup on clone
-     */
-    public function __clone(): void
-    {
-        $this->setURL('');
-        $this->setMethod(self::METHOD_GET);
-        $this->body = null;
-        $this->contentType = null;
-        $this->setHeader('content-type', null);
-        unset($this->curlOptions[CURLOPT_POST]);
-        unset($this->curlOptions[CURLOPT_POSTFIELDS]);
-        unset($this->curlOptions[CURLOPT_CUSTOMREQUEST]);
-    }
-
-    /**
      * Sets HTTP method
      *
      * @param string $method HTTP Method (see self::METHOD_* consts)
@@ -244,6 +229,18 @@ class HttpChannel extends Channel
         }
 
         return parent::getCurlOptions();
+    }
+
+    /**
+     * Cleanup on clone
+     */
+    public function __clone(): void
+    {
+        parent::__clone();
+        
+        unset($this->curlOptions[CURLOPT_POST]);
+        unset($this->curlOptions[CURLOPT_POSTFIELDS]);
+        unset($this->curlOptions[CURLOPT_CUSTOMREQUEST]);
     }
 
     /**

@@ -27,6 +27,9 @@ declare(strict_types = 1);
 
 namespace Maurice\Multicurl;
 
+use Maurice\Multicurl\Helper\ContextInfo;
+use Maurice\Multicurl\Helper\Stream;
+
 /**
  * Base channel
  *
@@ -36,7 +39,12 @@ class Channel
 {
     use ContextInfo;
 
-     /**
+    /**
+     * CurlHandle instance associated with this channel
+     */
+    protected ?\CurlHandle $curlHandle = null;
+
+    /**
      * Proxy type consts
      */
     public const PROXY_SOCKS5 = CURLPROXY_SOCKS5_HOSTNAME;
@@ -63,28 +71,50 @@ class Channel
     /**
      * onReady callback
      *
-     * @var \Closure(Channel, array<array-key, mixed>, mixed, Manager): void|null
+     * @var \Closure(Channel, array<array-key, mixed>, Stream, Manager): void|null
      */
-    protected $onReadyCb;
+    private $onReadyCb;
 
     /**
      * onTimeout callback
      *
      * @var \Closure(Channel, int, int, Manager): void|null
      */
-    protected $onTimeoutCb;
+    private $onTimeoutCb;
 
     /**
      * onError callback
      *
      * @var \Closure(Channel, string, int, array<array-key, mixed>, Manager): void|null
      */
-    protected $onErrorCb;
+    private $onErrorCb;
+
+    /**
+     * onStream callback
+     *
+     * @var \Closure(Channel, Stream, Manager): ?bool
+     */
+    private $onStreamCb;
 
     /**
      * Connection timeout
      */
     protected int $connectionTimeout;
+
+    /**
+     * Whether the channel is streamable
+     */
+    protected bool $streamable = false;
+
+    /**
+     * Stream object for buffer management
+     */
+    protected ?Stream $stream = null;
+
+    /**
+     * Whether the stream was aborted
+     */
+    protected bool $streamAborted = false;
 
     /**
      * Sets URL
@@ -135,6 +165,22 @@ class Channel
     public function getConnectionTimeout(): int
     {
         return $this->connectionTimeout === 0 ? 300_000 : $this->connectionTimeout;
+    }
+
+    /**
+     * Sets whether the channel is streamable
+     */
+    public function setStreamable(bool $streamable = true): void
+    {
+        $this->streamable = $streamable;
+    }
+
+    /**
+     * Returns whether the channel is streamable
+     */
+    public function isStreamable(): bool
+    {
+        return $this->streamable;
     }
 
     /**
@@ -215,9 +261,25 @@ class Channel
     }
 
     /**
+     * Sets the CurlHandle for this channel.
+     */
+    public function setCurlHandle(?\CurlHandle $curlHandle): void
+    {
+        $this->curlHandle = $curlHandle;
+    }
+
+    /**
+     * Returns the CurlHandle associated with this channel.
+     */
+    public function getCurlHandle(): ?\CurlHandle
+    {
+        return $this->curlHandle;
+    }
+
+    /**
      * Sets onReady callback
      *
-     * @param \Closure(Channel, array<array-key, mixed>, mixed, Manager): void $onReadyCb
+     * @param \Closure(Channel, array<array-key, mixed>, Stream, Manager): void $onReadyCb
      */
     public function setOnReadyCallback(\Closure $onReadyCb): void
     {
@@ -245,13 +307,44 @@ class Channel
     }
 
     /**
+     * Sets onStream callback
+     *
+     * If the callback returns false, the stream will be closed and the connection aborted.
+     * Return null/true in the callback to continue streaming data.
+     *
+     * @param \Closure(Channel, Stream, Manager): ?bool $onStreamCb
+     */
+    public function setOnStreamCallback(\Closure $onStreamCb): void
+    {
+        $this->onStreamCb = $onStreamCb;
+        $this->setStreamable(true);
+    }
+
+    /**
+     * Gets the stream object for buffer manipulation, creating one if it doesn't exist
+     *
+     * @return Stream Stream object (always returns a valid Stream)
+     */
+    public function getStream(): Stream
+    {
+        if ($this->stream === null) {
+            $this->stream = new Stream();
+        }
+        return $this->stream;
+    }
+
+    /**
      * Called from Manager when curl channel is ready and no error occured
      *
      * @param array<array-key, mixed> $info Output of curl_getinfo (@see https://php.net/curl_getinfo)
+     * @param string $data The response data
      */
-    public function onReady(array $info, mixed $content, Manager $manager): void
+    public function onReady(array $info, string $data, Manager $manager): void
     {
-        call_user_func($this->onReadyCb, $this, $info, $content, $manager);
+        // Always append data to the stream buffer
+        $this->getStream()->append($data);
+
+        call_user_func($this->onReadyCb, $this, $info, $this->getStream(), $manager);
     }
 
     /**
@@ -274,6 +367,48 @@ class Channel
      */
     public function onError(string $message, int $errno, array $info, Manager $manager): void
     {
-        call_user_func($this->onErrorCb, $this, $message, $errno, $info, $manager);
+        if ($this->streamAborted && $errno === CURLE_WRITE_ERROR) {
+            // Ignore write errors if the stream was aborted
+            return;
+        }
+        
+        if ($this->onErrorCb !== null) {
+            call_user_func($this->onErrorCb, $this, $message, $errno, $info, $manager);
+        } else {
+            throw new \RuntimeException('No error callback set for channel ' . $this->getURL() . ' when error occurred: ' . $message);
+        }
+    }
+
+    /**
+     * Called from Manager when data is received for streaming channels
+     *
+     * If this method returns any value other than strlen($data), the connection will be aborted.
+     * In this case a cURL error 23 (CURLE_WRITE_ERROR) will be returned to the Manager, which we will ignore.
+     *
+     * @param string $data The received data chunk
+     * @return int Number of bytes written (must return strlen($data) to continue)
+     */
+    public final function onStream(string $data, Manager $manager): int
+    {
+        // Always append data to the stream buffer
+        $this->getStream()->append($data);
+
+        if ($this->isStreamable()) {
+            // we check here for streamable because it could have been disabled after the stream was
+            // created and we cannot disable cURL's CURLOPT_WRITEFUNCTION after the request has been sent
+
+            $res = call_user_func($this->onStreamCb, $this, $this->getStream(), $manager);
+            if ($res === false) {
+                $this->streamAborted = true;
+                return 0; // abort connection
+            }
+        }
+        return strlen($data);
+    }
+
+    public function __clone(): void
+    {
+        $this->stream = null;
+        $this->setCurlHandle(null);
     }
 }

@@ -24,7 +24,7 @@ $ composer require maurice2k/multicurl
 
 ```php
 
-use Maurice\Multicurl\{Manager, Channel, HttpChannel};
+use Maurice\Multicurl\{Manager, Channel, HttpChannel, Helper\Stream};
 
 $urls = [
     'https://www.google.com/',
@@ -49,8 +49,10 @@ foreach ($urls as $url) {
 
     $chan = HttpChannel::create($url);
 
-    $chan->setOnReadyCallback(function(Channel $channel, array $info, $content) {
-        echo "[X] Successfully loaded '" . $channel->getURL() . "' (" . strlen($content) . " bytes, status code " . $info['http_code'] . ")\n";
+    $chan->setOnReadyCallback(function(Channel $channel, array $info, Stream $stream, Manager $manager) {
+        $length = $stream->getLength();
+        $streamContent = $stream->consume();
+        echo "[X] Successfully loaded '" . $channel->getURL() . "' (" . $length . " bytes, status code " . $info['http_code'] . ")\n";
     });
 
     $chan->setOnTimeoutCallback(function(Channel $channel, int $timeoutType, int $elapsedMS, Manager $manager) {
@@ -87,7 +89,7 @@ A cleaner way would have been to create a `HttpCrawlChannel` (extending `HttpCha
 
 ```php
 
-use Maurice\Multicurl\{Manager, Channel, HttpChannel};
+use Maurice\Multicurl\{Manager, Channel, HttpChannel, Helper\Stream};
 
 $counter = new \stdClass();
 $counter->links = 20;
@@ -101,12 +103,14 @@ $chan->setTimeout(5000);
 $chan->setFollowRedirects(true);
 $chan->setCookieJarFile('cookies.txt');
 
-$chan->setOnReadyCallback(function(Channel $channel, array $info, $content, Manager $manager) {
-    echo "[X] Successfully loaded '" . $channel->getURL() . "' (" . strlen($content) . " bytes)\n";
+$chan->setOnReadyCallback(function(Channel $channel, array $info, Stream $stream, Manager $manager) {
+    $length = $stream->getLength();
+    $streamContent = $stream->consume();
+    echo "[X] Successfully loaded '" . $channel->getURL() . "' (" . $length . " bytes)\n";
 
     if ($manager->getContext()->links > 0) {
 
-        if (!preg_match_all('#<a[^>]+?href="(/wiki/[^:]+?)"[^>]*?>#', $content, $matches)) {
+        if (!preg_match_all('#<a[^>]+?href="(/wiki/[^:]+?)"[^>]*?>#', $streamContent, $matches)) {
             return;
         }
 

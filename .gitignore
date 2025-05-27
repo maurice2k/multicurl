@@ -1,5 +1,7 @@
 .cache/
 .vscode/
+.idea/
 .phpactor.json
+
 vendor/
 composer.lock

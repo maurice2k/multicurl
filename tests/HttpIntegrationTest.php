@@ -5,6 +5,7 @@ namespace Maurice\Multicurl\Tests;
 
 use Maurice\Multicurl\Manager;
 use Maurice\Multicurl\HttpChannel;
+use Maurice\Multicurl\Helper\Stream;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -53,7 +54,8 @@ class HttpIntegrationTest extends TestCase
             // Capture the ID for use in callbacks
             $channelId = $i;
             
-            $channel->setOnReadyCallback(function($channel, $info, $content) use (&$results, $channelId) {
+            $channel->setOnReadyCallback(function($channel, $info, Stream $stream, $manager) use (&$results, $channelId) {
+                $content = $stream->consume();
                 $results[$channelId] = [
                     'status' => $info['http_code'],
                     'content' => $content
@@ -89,11 +91,17 @@ class HttpIntegrationTest extends TestCase
         // Verify each response contains the correct id
         foreach ($results as $id => $result) {
             $this->assertEquals(200, $result['status']);
-            $data = json_decode($result['content'], true);
-            $this->assertIsArray($data);
-            $this->assertArrayHasKey('args', $data);
-            $this->assertArrayHasKey('id', $data['args']);
-            $this->assertEquals((string)$id, $data['args']['id']);
+            $content = (string)$result['content'];
+            $jsonData = json_decode($content, true);
+            
+            $this->assertIsArray($jsonData);
+            $this->assertArrayHasKey('args', $jsonData);
+            $this->assertArrayHasKey('id', $jsonData['args']);
+            
+            // Convert both to strings for comparison
+            $expectedId = (string)$id;
+            $actualId = is_array($jsonData['args']['id']) ? $jsonData['args']['id'][0] : (string)$jsonData['args']['id'];
+            $this->assertSame($expectedId, $actualId);
         }
     }
 
@@ -107,7 +115,8 @@ class HttpIntegrationTest extends TestCase
         $channel = HttpChannel::create($this->baseUrl . '/status/404');
         $channel->setTimeout(5000);
         
-        $channel->setOnReadyCallback(function($channel, $info, $content) use (&$errors) {
+        $channel->setOnReadyCallback(function($channel, $info, Stream $stream, $manager) use (&$errors) {
+            $content = $stream->consume();
             $errors[] = [
                 'type' => 'ready',
                 'status' => $info['http_code'],
@@ -151,7 +160,8 @@ class HttpIntegrationTest extends TestCase
         $channel = HttpChannel::create($this->baseUrl . '/post', HttpChannel::METHOD_POST, $testData);
         $channel->setTimeout(5000);
         
-        $channel->setOnReadyCallback(function($channel, $info, $content) use (&$results) {
+        $channel->setOnReadyCallback(function($channel, $info, Stream $stream, $manager) use (&$results) {
+            $content = (string)$stream->consume();
             $results[] = [
                 'content' => $content,
                 'info' => $info,
@@ -193,7 +203,7 @@ class HttpIntegrationTest extends TestCase
             
             $channelId = $i;
             
-            $channel->setOnReadyCallback(function($channel, $info, $content) use (&$processingTimes, $startTime, $channelId) {
+            $channel->setOnReadyCallback(function($channel, $info, Stream $stream, $manager) use (&$processingTimes, $startTime, $channelId) {
                 $processingTimes[$channelId] = microtime(true) - $startTime;
             });
             
