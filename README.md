@@ -14,7 +14,7 @@ $ composer require maurice2k/multicurl
 
 ## Compatibility
 
-`Maurice\Multicurl` requires PHP 8.0 (or better) with the curl extension enabled.
+`Maurice\Multicurl` requires PHP 8.1 (or better) with the curl extension enabled.
 
 
 ## Usage
@@ -169,4 +169,40 @@ Outputs something like this:
 [X] Successfully loaded 'https://en.wikipedia.org/wiki/Paging' (142101 bytes)
 [X] Successfully loaded 'https://en.wikipedia.org/wiki/Nice_(Unix)' (57852 bytes)
 [X] Successfully loaded 'https://en.wikipedia.org/wiki/AIX_operating_system' (187416 bytes)
+```
+
+## Testing
+
+To run tests with a specific PHP version:
+
+```bash
+# Run all tests with PHP 8.1
+make test-8.1
+
+# Run all tests with PHP 8.2
+make test-8.2
+
+# Run all tests with PHP 8.3
+make test-8.3
+
+# Run all tests with PHP 8.4 (default)
+make test-8.4
+# or simply
+make test
+```
+
+You can also run specific test types:
+
+```bash
+# Run unit tests only with PHP 8.3
+make unit-8.3
+
+# Run integration tests only with PHP 8.2
+make integration-8.2
+```
+
+To run tests with all supported PHP versions (8.1, 8.2, 8.3, 8.4):
+
+```bash
+make test-all
 ```

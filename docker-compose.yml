@@ -7,29 +7,53 @@ services:
     networks:
       - test-network
 
-  # Unit tests only (no external dependencies)
-  unit-tests:
-    build: .
-    volumes:
-      - .:/multicurl
-      - /multicurl/vendor
-    command: vendor/bin/phpunit --exclude-group integration
+  # PHP 8.1 container
+  php81:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PHP_VERSION: 8.1
     networks:
       - test-network
-
-  # Integration tests with HTTP server
-  integration-tests:
-    build: .
-    volumes:
-      - .:/multicurl
-      - /multicurl/vendor
-    depends_on:
-      - httpbin
-    command: vendor/bin/phpunit --group integration
     environment:
       - TEST_HTTP_SERVER=httpbin:8080
+
+  # PHP 8.2 container
+  php82:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PHP_VERSION: 8.2
     networks:
       - test-network
+    environment:
+      - TEST_HTTP_SERVER=httpbin:8080
+
+  # PHP 8.3 container
+  php83:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PHP_VERSION: 8.3
+    networks:
+      - test-network
+    environment:
+      - TEST_HTTP_SERVER=httpbin:8080
+
+  # PHP 8.4 container
+  php84:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PHP_VERSION: 8.4
+    networks:
+      - test-network
+    environment:
+      - TEST_HTTP_SERVER=httpbin:8080
 
 networks:
   test-network:

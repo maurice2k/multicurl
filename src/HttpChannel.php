@@ -190,6 +190,16 @@ class HttpChannel extends Channel
         $this->setCurlOption(CURLOPT_USERAGENT, $userAgent);
     }
 
+    public function setBasicAuth(string $username, string $password): void
+    {
+        $this->setCurlOption(CURLOPT_USERPWD, $username . ':' . $password);
+    }
+
+    public function setBearerAuth(string $token): void
+    {
+        $this->setHeader('Authorization', 'Bearer ' . $token);
+    }
+
     /**
      * Whether or not to follow redirects
      *

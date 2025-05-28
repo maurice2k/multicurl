@@ -32,7 +32,7 @@ class TimeoutAndErrorTest extends TestCase
 
         // Use a non-routable IP to trigger connection timeout
         // 10.255.255.1 is a commonly used non-routable address for testing
-        $channel = HttpChannel::create('http://10.255.255.1:80/test');
+        $channel = HttpChannel::create('http://10.255.255.1:8000/test');
         $channel->setConnectionTimeout(500); // 500ms connection timeout
         $channel->setTimeout(2000); // 2s total timeout to ensure connection timeout triggers first
         

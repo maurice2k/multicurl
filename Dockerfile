@@ -1,4 +1,6 @@
-FROM php:8.4-cli
+ARG PHP_VERSION=8.4
+
+FROM php:${PHP_VERSION}-cli
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -8,19 +10,16 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2.8 /usr/bin/composer /usr/bin/composer
 
 # Set working directory to root for relative paths
 WORKDIR /multicurl
 
-# Copy composer files first for better layer caching
-COPY composer.json composer.lock ./
+# Copy source code
+COPY . .
 
 # Install dependencies
 RUN composer install --no-scripts --no-autoloader
-
-# Copy source code
-COPY . .
 
 # Generate autoloader
 RUN composer dump-autoload --optimize
