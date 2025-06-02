@@ -309,11 +309,26 @@ class Manager
         $added = 0;
         foreach (array_splice($this->channelQueue, 0, $number) as $channel) {
             /** @var Channel $channel */
-            $ch = $this->createCurlHandleFromChannel($channel);
+            $beforeChannel = $channel->popBeforeChannel();
+            if ($beforeChannel !== null) {
+                // Append the original channel to the end of the nextChannel chain
+                $beforeChannel->appendNextChannel($channel);
+                $channelToProcess = $beforeChannel;
+            } else {
+                $channelToProcess = $channel;
+            }
+            
+            $ch = $this->createCurlHandleFromChannel($channelToProcess);
             curl_multi_add_handle($this->mh, $ch);
-            $this->resourceChannelLookup[self::toHandleIdentifier($ch)] = $channel;
+            $this->resourceChannelLookup[self::toHandleIdentifier($ch)] = $channelToProcess;
             $added++;
+            
+            // If we've reached our limit, stop processing
+            if ($added >= $number) {
+                break;
+            }
         }
+        
         return $added;
     }
 

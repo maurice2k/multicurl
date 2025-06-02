@@ -122,6 +122,11 @@ class Channel
     protected ?Channel $nextChannel = null;
 
     /**
+     * Channel to be executed before this channel is executed
+     */
+    protected ?Channel $beforeChannel = null;
+
+    /**
      * Sets URL
      */
     public function setURL(string $url): void
@@ -342,6 +347,36 @@ class Channel
     }
 
     /**
+     * Appends a channel to the end of the nextChannel chain.
+     * If there's no nextChannel, it simply sets it.
+     * If there's already a chain, finds the last channel and appends there.
+     */
+    public function appendNextChannel(Channel $channel): void
+    {
+        if ($this->nextChannel === null) {
+            $this->nextChannel = $channel;
+            return;
+        }
+        
+        // Find the last channel in the chain
+        $current = $this->nextChannel;
+        while ($current->nextChannel !== null) {
+            $current = $current->nextChannel;
+        }
+        
+        // Append the new channel
+        $current->nextChannel = $channel;
+    }
+
+    /**
+     * Sets a channel to be executed before this one is executed.
+     */
+    public function setBeforeChannel(Channel $channel): void
+    {
+        $this->beforeChannel = $channel;
+    }
+
+    /**
      * Gets and removes the next channel to be executed.
      *
      * @return Channel|null The next channel, or null if none is set.
@@ -351,6 +386,18 @@ class Channel
         $next = $this->nextChannel;
         $this->nextChannel = null;
         return $next;
+    }
+
+    /**
+     * Gets and removes the before channel to be executed.
+     *
+     * @return Channel|null The before channel, or null if none is set.
+     */
+    public function popBeforeChannel(): ?Channel
+    {
+        $before = $this->beforeChannel;
+        $this->beforeChannel = null;
+        return $before;
     }
 
     /**
@@ -453,5 +500,6 @@ class Channel
         $this->streamAborted = false;
         $this->setCurlHandle(null);
         $this->nextChannel = null;
+        $this->beforeChannel = null;
     }
 }
