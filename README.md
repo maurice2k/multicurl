@@ -23,6 +23,7 @@ $ composer require maurice2k/multicurl
 ### Basic example
 
 ```php
+<?php
 
 use Maurice\Multicurl\{Manager, Channel, HttpChannel, Helper\Stream};
 
@@ -56,17 +57,18 @@ foreach ($urls as $url) {
     });
 
     $chan->setOnTimeoutCallback(function(Channel $channel, int $timeoutType, int $elapsedMS, Manager $manager) {
-        echo "[T] " . ($timeoutType == Channel::TIMEOUT_CONNECTION ? "Connection" : "Global") . " timeout after ${elapsedMS} ms for '" . $channel->getURL() . "'\n";
+        echo "[T] " . ($timeoutType == Channel::TIMEOUT_CONNECTION ? "Connection" : "Global") . " timeout after {$elapsedMS} ms for '" . $channel->getURL() . "'\n";
     });
 
-    $chan->setOnErrorCallback(function(Channel $channel, string $message, $errno, $info) {
-        echo "[E] cURL error #${errno}: '${message}' for '" . $channel->getURL() . "'\n";
+    $chan->setOnErrorCallback(function(Channel $channel, string $message, $errno, array $info, Manager $manager) {
+        echo "[E] cURL error #{$errno}: '{$message}' for '" . $channel->getURL() . "'\n";
     });
 
     $manager->addChannel($chan);
 }
 
 $manager->run();
+
 ```
 
 Outputs something like this:
@@ -88,6 +90,7 @@ In this example we're implementing a super simple web crawler that starts at Wik
 A cleaner way would have been to create a `HttpCrawlChannel` (extending `HttpChannel`) that directly implements and overwrites HttpChannel's `onReady` method (as well as `onTimeout` and `onError`).
 
 ```php
+<?php
 
 use Maurice\Multicurl\{Manager, Channel, HttpChannel, Helper\Stream};
 
@@ -124,7 +127,7 @@ $chan->setOnReadyCallback(function(Channel $channel, array $info, Stream $stream
             $newUrl = $urlinfo['scheme'] . '://' . $urlinfo['host'] . $relativeLink;
 
             $newChan = clone $channel;
-            $newChan->setUrl($newUrl);
+            $newChan->setURL($newUrl);
             $manager->addChannel($newChan);
 
             $manager->getContext()->links--;
@@ -134,16 +137,17 @@ $chan->setOnReadyCallback(function(Channel $channel, array $info, Stream $stream
 });
 
 $chan->setOnTimeoutCallback(function(Channel $channel, int $timeoutType, int $elapsedMS, Manager $manager) {
-    echo "[T] " . ($timeoutType == Channel::TIMEOUT_CONNECTION ? "Connection" : "Global") . " timeout after ${elapsedMS} ms for '" . $channel->getURL() . "'\n";
+    echo "[T] " . ($timeoutType == Channel::TIMEOUT_CONNECTION ? "Connection" : "Global") . " timeout after {$elapsedMS} ms for '" . $channel->getURL() . "'\n";
 });
 
-$chan->setOnErrorCallback(function(Channel $channel, string $message, $errno, $info, Manager $manager) {
-    echo "[E] cURL error #${errno}: '${message}' for '" . $channel->getURL() . "'\n";
+$chan->setOnErrorCallback(function(Channel $channel, string $message, $errno, array $info, Manager $manager) {
+    echo "[E] cURL error #{$errno}: '{$message}' for '" . $channel->getURL() . "'\n";
 });
 
 $manager->addChannel($chan);
 
 $manager->run();
+
 ```
 
 Outputs something like this:
@@ -170,6 +174,94 @@ Outputs something like this:
 [X] Successfully loaded 'https://en.wikipedia.org/wiki/Nice_(Unix)' (57852 bytes)
 [X] Successfully loaded 'https://en.wikipedia.org/wiki/AIX_operating_system' (187416 bytes)
 ```
+
+### Create a MCP client using McpChannel
+
+This example demonstrates how to use `McpChannel` to connect to a remote MCP server and list available tools.
+> Works for newer MCP protocol version 2025-03-26 and above ("streamable HTTP").
+
+```php
+<?php
+
+use Maurice\Multicurl\Channel;
+use Maurice\Multicurl\Manager;
+use Maurice\Multicurl\McpChannel;
+use Maurice\Multicurl\Mcp\RpcMessage;
+
+$mcpUrl = 'https://remote.mcpservers.org/fetch/mcp';
+
+$manager = new Manager();
+
+$listToolsChannel = new McpChannel($mcpUrl, RpcMessage::toolsListRequest());
+//$listToolsChannel->setShowCurlCommand(true);
+//$listToolsChannel->setVerbose(true);
+
+// Automatically initialize MCP channel (two more requests will be sent)
+$listToolsChannel->setAutomaticInitialize();
+
+// Set up MCP message handling for the tools/list response
+$listToolsChannel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel) use ($manager) {
+    echo "Received MCP Message (ID: {$message->getId()}, Type: {$message->getType()})\n";
+
+    if ($message->isResponse() && $message->getId() === $channel->getRpcMessage()->getId()) { // Response to tools/list request
+        if ($message->getResult() && isset($message->getResult()['tools'])) {
+            echo "Available Tools:\n";
+            foreach ($message->getResult()['tools'] as $tool) {
+                // Build function-like definition with parameters
+                $functionDef = $tool['name'];
+                if (isset($tool['inputSchema']) && isset($tool['inputSchema']['properties'])) {
+                    $params = [];
+                    foreach ($tool['inputSchema']['properties'] as $paramName => $paramProps) {
+                        $type = $paramProps['type'] ?? 'mixed';
+                        $required = in_array($paramName, $tool['inputSchema']['required'] ?? []) ? '' : '?';
+                        $params[] = "{$type}{$required} \\${$paramName}";
+                    }
+                    $functionDef .= "(" . implode(', ', $params) . ")";
+                } else {
+                    $functionDef .= "()";
+                }
+
+                echo "- Name: {$functionDef}\n";
+                echo "  Description: ".($tool['description'] ?? 'No description available')."\n";
+
+                // Optionally print inputSchema
+                // echo "  Input Schema: " . json_encode($tool['inputSchema']) . "\n";
+            }
+        } elseif ($message->getError()) {
+            echo "Error listing tools: {$message->getError()['message']} (Code: {$message->getError()['code']})\n";
+        } else {
+            echo "Unexpected response format for tools/list\n";
+        }
+
+        return false; // abort connection
+    } else if ($message->isError()) {
+        echo "Error during tools listing: {$message->getError()['message']} (Code: {$message->getError()['code']})\n";
+    }
+});
+
+// Set up error handling for the main channel
+$listToolsChannel->setOnErrorCallback(function(Channel $channel, string $error, int $code, array $info, Manager $manager) {
+    echo "Error: {$error} (Code: {$code})\n";
+    echo "HTTP status: " . $info['http_code'] . "\n";
+});
+
+// Add the channel to the manager
+$manager->addChannel($listToolsChannel);
+
+// Execute the requests
+$manager->run();
+
+```
+
+Outputs something like this (will vary based on the server's available tools):
+
+```
+Received MCP Message (ID: 1, Type: response)
+Available Tools:
+- Name: fetch(string $url, number? $max_length, number? $start_index, boolean? $raw)
+  Description: No description available
+```
+
 
 ## Testing
 
