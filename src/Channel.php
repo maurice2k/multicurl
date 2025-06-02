@@ -339,14 +339,6 @@ class Channel
     }
 
     /**
-     * Sets the next channel to be executed after this one completes.
-     */
-    public function setNextChannel(Channel $channel): void
-    {
-        $this->nextChannel = $channel;
-    }
-
-    /**
      * Appends a channel to the end of the nextChannel chain.
      * If there's no nextChannel, it simply sets it.
      * If there's already a chain, finds the last channel and appends there.
@@ -370,10 +362,17 @@ class Channel
 
     /**
      * Sets a channel to be executed before this one is executed.
+     * 
+     * @param Channel $channel The channel to execute before this one
+     * @param bool $setThisAsNext Whether to automatically set this channel as the next channel of the before channel
      */
-    public function setBeforeChannel(Channel $channel): void
+    public function setBeforeChannel(Channel $channel, bool $setThisAsNext = false): void
     {
         $this->beforeChannel = $channel;
+        
+        if ($setThisAsNext) {
+            $channel->appendNextChannel($this);
+        }
     }
 
     /**

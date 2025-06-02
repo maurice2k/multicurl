@@ -310,9 +310,7 @@ class Manager
         foreach (array_splice($this->channelQueue, 0, $number) as $channel) {
             /** @var Channel $channel */
             $beforeChannel = $channel->popBeforeChannel();
-            if ($beforeChannel !== null) {
-                // Append the original channel to the end of the nextChannel chain
-                $beforeChannel->appendNextChannel($channel);
+            if ($beforeChannel instanceof Channel) {
                 $channelToProcess = $beforeChannel;
             } else {
                 $channelToProcess = $channel;

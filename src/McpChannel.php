@@ -50,9 +50,14 @@ class McpChannel extends HttpChannel
     protected ?string $lastEventId = null;
 
     /**
+     * Initialize channel for automatic initialization
+     */
+    protected ?McpChannel $initializeChannel = null;
+
+    /**
      * onMcpMessage callback
      *
-     * @var \Closure(RpcMessage, self): ?bool
+     * @var \Closure(RpcMessage, self, Manager): ?bool
      */
     private ?\Closure $onMcpMessageCb = null;
 
@@ -120,10 +125,10 @@ class McpChannel extends HttpChannel
     private function setupMessageCallbacks(): void
     {
         // Hook into SSE events to process MCP messages
-        $this->setOnEventCallback(function($event, $channel): ?bool {
+        $this->setOnEventCallback(function($event, $channel, $manager): ?bool {
             // SSE events with JSON-RPC data
             if ($event->data) {
-                $res = $this->processJsonMessage($event->data);
+                $res = $this->processJsonMessage($event->data, $manager);
                 return $res;
             }
             return null;
@@ -133,14 +138,14 @@ class McpChannel extends HttpChannel
         parent::setOnReadyCallback(function($channel, $info, $stream, $manager) {
             // Only process JSON responses here (SSE is handled via onEventCallback)
             if (!$this->isStreamable() && $stream->getSize() > 0) {
-                $this->processJsonMessage($stream->peek());
+                $this->processJsonMessage($stream->peek(), $manager);
             }
         });
     }
 
     public function setOnReadyCallback(\Closure $onReadyCb): void
     {
-        throw new \Exception('setOnReadyCallback is not supported for McpChannel, use setOnMcpMessageCallback instead');
+        throw new \Exception('setOnReadyCallback is not supported for McpChannel, use setOnMcpMessageCallback or setOnErrorCallback instead');
     }
 
     /**
@@ -154,6 +159,33 @@ class McpChannel extends HttpChannel
             $this->setHeader('Mcp-Session-Id', $sessionId);
         } else {
             $this->setHeader('Mcp-Session-Id', null);
+        }
+    }
+
+    /**
+     * Override setHeader to also update the initialize channel if it exists
+     */
+    public function setHeader(string $name, ?string $value = null): void
+    {
+        parent::setHeader($name, $value);
+        
+        // Also update the initialize channel if it exists
+        if ($this->initializeChannel !== null && $this !== $this->initializeChannel) {
+            $this->initializeChannel->setHeader($name, $value);
+        }
+    }
+
+    /**
+     * Override setCurlOption to also update the initialize channel if it exists
+     */
+    public function setCurlOption(int $option, mixed $value): void
+    {
+        parent::setCurlOption($option, $value);
+        
+        // Also update the initialize channel if it exists, except for CURLOPT_HTTPHEADER
+        // which would cause double propagation (once through setCurlOption and once through setHeader)
+        if ($this->initializeChannel !== null && $this !== $this->initializeChannel && $option !== CURLOPT_HTTPHEADER) {
+            $this->initializeChannel->setCurlOption($option, $value);
         }
     }
 
@@ -192,7 +224,7 @@ class McpChannel extends HttpChannel
      *
      * If the callback returns false, the stream will be closed (if it was a streamable channel).
      *
-     * @param \Closure(RpcMessage, self): ?bool $onMcpMessageCb
+     * @param \Closure(RpcMessage, self, Manager): ?bool $onMcpMessageCb
      */
     public function setOnMcpMessageCallback(\Closure $onMcpMessageCb): void
     {
@@ -212,10 +244,10 @@ class McpChannel extends HttpChannel
     /**
      * Process an MCP message and trigger the callback
      */
-    private function onMcpMessage(RpcMessage $message): bool
+    private function onMcpMessage(RpcMessage $message, Manager $manager): bool
     {
         if ($this->onMcpMessageCb !== null) {
-            $res = ($this->onMcpMessageCb)($message, $this);
+            $res = ($this->onMcpMessageCb)($message, $this, $manager);
             if ($res === false) {
                 return false;
             }
@@ -234,9 +266,21 @@ class McpChannel extends HttpChannel
     }
 
     /**
-     * Process JSON data for MCP messages - handles both single messages and batches
+     * Check if an exception callback has been set
      */
-    protected function processJsonMessage(string $json): ?bool
+    public function hasExceptionCallback(): bool
+    {
+        return $this->onExceptionCb !== null;
+    }
+
+    /**
+     * Process JSON data for MCP messages - handles both single messages and batches
+     * 
+     * @param string $json JSON data to process
+     * @param Manager $manager Manager instance for callback
+     * @return bool|null Return value from the callback
+     */
+    protected function processJsonMessage(string $json, Manager $manager): ?bool
     {
         $data = json_decode($json, true);
         if ($data === null) 
@@ -249,7 +293,7 @@ class McpChannel extends HttpChannel
             foreach ($data as $item) {
                 try {
                     $message = RpcMessage::fromArray($item);
-                    return $this->onMcpMessage($message);
+                    return $this->onMcpMessage($message, $manager);
                 } catch (\Exception $e) {
                     // Skip invalid messages
                     $this->onException($e);
@@ -259,7 +303,7 @@ class McpChannel extends HttpChannel
             // Single message
             try {
                 $message = RpcMessage::fromArray($data);
-                return $this->onMcpMessage($message);
+                return $this->onMcpMessage($message, $manager);
             } catch (\Exception $e) {
                 // Ignore invalid message
                 $this->onException($e);
@@ -293,6 +337,75 @@ class McpChannel extends HttpChannel
         return $this->rpcMessage;
     }
 
+    /**
+     * Sets up automatic initialization for MCP communication
+     * 
+     * This creates a chain of channels for proper MCP initialization:
+     * 1. Initialize request (RPC message "initialize")
+     * 2. Initialized notification (RPC message "notifications/initialized")
+     * 
+     * The session ID from initialization will be set to this channel.
+     * 
+     * @param array<string, mixed>|null $clientInfo Optional client info to use in initialization
+     * @param array<string, mixed>|null $capabilities Optional capabilities to use in initialization
+     */
+    public function setAutomaticInitialize(
+        ?array $clientInfo = null,
+        ?array $capabilities = null
+    ): void {
+        // Create the initialization channel that will be executed first
+        $this->initializeChannel = clone $this;
+        $this->initializeChannel->setRpcMessage(RpcMessage::initializeRequest(
+            '2025-03-26',
+            $clientInfo,
+            $capabilities
+        ));
+        
+        // Set up the initialization callback
+        $mainChannel = $this; // Reference to the main channel to set session ID
+        
+        $this->initializeChannel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel, Manager $manager) use ($mainChannel) {
+            if ($message->isError()) {
+                // Propagate error to caller via exception
+                throw new \RuntimeException('MCP initialization error: ' . 
+                    ($message->getError()['message'] ?? 'Unknown error') . 
+                    ' (Code: ' . ($message->getError()['code'] ?? 'unknown') . ')');
+            }
+
+            if ($message->isResponse() && $message->getId() == $channel->getRpcMessage()->getId()) {
+                if ($message->getResult()) {
+
+                    // update the main channel's session ID
+                    $mainChannel->setSessionId($channel->getSessionId());
+
+                    $initializedNotificationChannel = clone($channel);
+                    $initializedNotificationChannel->setRpcMessage(RpcMessage::notification('notifications/initialized'));
+                    $initializedNotificationChannel->appendNextChannel($mainChannel);  // this calls the main channel's logic
+
+                    $channel->appendNextChannel($initializedNotificationChannel);
+                   
+                    return false;
+                }
+            }
+            
+            return true;
+        });
+        
+        // Forward exceptions from initialization channel to main channel
+        $this->initializeChannel->setOnExceptionCallback(function (\Exception $exception, McpChannel $channel) use ($mainChannel) {
+            // Forward the exception to the main channel using our helper method
+            $mainChannel->forwardException($exception, 'MCP initialization error');
+        });
+        
+        // Also set up error forwarding for the error callback
+        $this->initializeChannel->setOnErrorCallback(function (Channel $channel, string $error, int $code, array $info, Manager $manager) use ($mainChannel) {
+            // Forward the error to the main channel
+            $mainChannel->onError($error, $code, $info, $manager);
+        });
+        
+        $this->setBeforeChannel($this->initializeChannel);
+    }
+
     public function __clone(): void
     {
         parent::__clone();
@@ -300,9 +413,41 @@ class McpChannel extends HttpChannel
         $this->currentEventData = '';
         $this->currentEventName = '';
         $this->currentEventId = '';
+        
+        // Important: Clear the initialize channel when cloning
+        $this->initializeChannel = null;
 
         $this->setupSse();
         $this->setupResponseHeaderCallback();
         $this->setupMessageCallbacks();
+    }
+
+    /**
+     * Forward an exception to this channel's exception handler
+     * 
+     * This is a public method that can be used to trigger the exception handler
+     * from another channel, e.g. when forwarding exceptions from the initialize channel.
+     * 
+     * @param \Exception $exception Exception to forward to this channel's handler
+     * @param string $context Optional context information for the exception
+     */
+    public function forwardException(\Exception $exception, string $context = ''): void
+    {
+        if ($this->onExceptionCb !== null) {
+            // Wrap the exception with context information if provided
+            if ($context) {
+                $exception = new \RuntimeException(
+                    "{$context}: " . $exception->getMessage(),
+                    (int)$exception->getCode(),
+                    $exception
+                );
+            }
+            
+            // Call the exception callback directly
+            ($this->onExceptionCb)($exception, $this);
+        } else {
+            // No handler, just rethrow
+            throw $exception;
+        }
     }
 } 

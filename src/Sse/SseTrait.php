@@ -41,7 +41,7 @@ use Maurice\Multicurl\Manager;
 trait SseTrait
 {
     /**
-     * @var \Closure(SseEvent, self): ?bool
+     * @var \Closure(SseEvent, self, Manager): ?bool
      */
     private $onEventCb = null;
 
@@ -85,7 +85,7 @@ trait SseTrait
      *
      * If the callback returns false, the stream will be closed.
      *
-     * @param \Closure(SseEvent, self): ?bool $onEventCb
+     * @param \Closure(SseEvent, self, Manager): ?bool $onEventCb
      */
     public function setOnEventCallback(?\Closure $onEventCb): void
     {
@@ -104,7 +104,7 @@ trait SseTrait
 
         // Set the stream callback to process the stream
         $this->setOnStreamCallback(function(Channel $channel, Stream $stream, Manager $manager): ?bool {
-            if ($this->processSseStream() === false) {
+            if ($this->processSseStream($manager) === false) {
                 return false;
             }
             return null;
@@ -114,9 +114,10 @@ trait SseTrait
     /**
      * Processes the internal stream buffer for SSE events.
      *
+     * @param Manager $manager The Manager instance for callbacks
      * @return bool True if the stream is still active, false if the stream has ended
      */
-    protected function processSseStream(): bool
+    protected function processSseStream(Manager $manager): bool
     {
         while (true) {
             $line = $this->getStream()->consumeLine();
@@ -141,7 +142,7 @@ trait SseTrait
                     // $this->currentEventId is not reset as per SSE spec (it persists)
 
                     if ($this->onEventCb !== null) {
-                        $res = ($this->onEventCb)($event, $this);
+                        $res = ($this->onEventCb)($event, $this, $manager);
                         if ($res === false) {
                             return false; // Abort stream if callback returns false
                         }
