@@ -85,6 +85,11 @@ class HttpChannel extends Channel
     protected static ?HttpChannel $prototype = null;
 
     /**
+     * Whether to show the curl command
+     */
+    protected bool $showCurlCommand = false;
+
+    /**
      * Constructor
      *
      * @param string $url URL
@@ -239,6 +244,119 @@ class HttpChannel extends Channel
         }
 
         return parent::getCurlOptions();
+    }
+
+    /**
+     * Generates a curl command string for debugging purposes.
+     */
+    public function generateCurlCommand(): string
+    {
+        $command = 'curl ';
+
+        // URL
+        $command .= escapeshellarg($this->getUrl()) . " ";
+
+        // Method
+        if ($this->method === self::METHOD_POST) {
+            $command .= "-X POST ";
+        } elseif ($this->method !== self::METHOD_GET) {
+            $command .= "-X " . escapeshellarg($this->method) . " ";
+        }
+
+        // Headers
+        foreach ($this->headers as $header) {
+            $command .= "-H " . escapeshellarg($header) . " ";
+        }
+
+        // Body
+        if ($this->body !== null && $this->body !== '') {
+            $command .= "-d " . escapeshellarg($this->body) . " ";
+        }
+
+        // Other curl options
+        $curlOptions = parent::getCurlOptions(); // Use parent to avoid re-adding POSTFIELDS/CUSTOMREQUEST
+        foreach ($curlOptions as $option => $value) {
+            switch ($option) {
+                case CURLOPT_HTTP_VERSION:
+                    if ($value === self::HTTP_1_1) {
+                        $command .= "--http1.1 ";
+                    } elseif ($value === self::HTTP_2_0) {
+                        $command .= "--http2 ";
+                    }
+                    break;
+                case CURLOPT_USERAGENT:
+                    $command .= "-A " . escapeshellarg((string)$value) . " ";
+                    break;
+                case CURLOPT_USERPWD:
+                    $command .= "-u " . escapeshellarg((string)$value) . " ";
+                    break;
+                case CURLOPT_FOLLOWLOCATION:
+                    if ($value) {
+                        $command .= "-L ";
+                    }
+                    break;
+                case CURLOPT_MAXREDIRS:
+                    if ($curlOptions[CURLOPT_FOLLOWLOCATION] ?? false) {
+                        $command .= "--max-redirs " . escapeshellarg((string)$value) . " ";
+                    }
+                    break;
+                case CURLOPT_COOKIEJAR:
+                    $command .= "-c " . escapeshellarg((string)$value) . " ";
+                    break;
+                case CURLOPT_COOKIEFILE:
+                    // only add if not already added by COOKIEJAR
+                    if (!isset($curlOptions[CURLOPT_COOKIEJAR]) || $curlOptions[CURLOPT_COOKIEJAR] !== $value) {
+                         $command .= "-b " . escapeshellarg((string)$value) . " ";
+                    }
+                    break;
+                case CURLOPT_TIMEOUT_MS:
+                    $command .= "--connect-timeout " . escapeshellarg((string)($value / 1000)) . " ";
+                    break;
+                case CURLOPT_CONNECTTIMEOUT_MS:
+                     $command .= "--connect-timeout " . escapeshellarg((string)($value / 1000)) . " ";
+                    break;
+                case CURLOPT_TIMEOUT:
+                     $command .= "--max-time " . escapeshellarg((string)$value) . " ";
+                     break;
+                 case CURLOPT_CONNECTTIMEOUT:
+                      $command .= "--connect-timeout " . escapeshellarg((string)$value) . " ";
+                      break;
+                // Skip options already handled or not directly translatable to CLI
+                case CURLOPT_URL:
+                case CURLOPT_POST:
+                case CURLOPT_POSTFIELDS:
+                case CURLOPT_CUSTOMREQUEST:
+                case CURLOPT_HTTPHEADER:
+                case CURLOPT_HEADERFUNCTION:
+                case CURLOPT_RETURNTRANSFER:
+                case CURLOPT_WRITEFUNCTION:
+                case CURLOPT_VERBOSE: // Handled by the caller
+                case CURLOPT_FAILONERROR: // default behavior for curl CLI
+                    break;
+                default:
+                    // For unhandled options, you might want to log them or add a generic way to represent them if possible
+                    // For now, we'll just skip them to avoid errors.
+                    break;
+            }
+        }
+
+        return trim($command);
+    }
+
+    /**
+     * Sets whether to show the curl command
+     */
+    public function setShowCurlCommand(bool $showCurlCommand): void
+    {
+        $this->showCurlCommand = $showCurlCommand;
+    }
+
+    /**
+     * Returns whether to show the curl command
+     */
+    public function isShowCurlCommand(): bool
+    {
+        return $this->showCurlCommand;
     }
 
     /**

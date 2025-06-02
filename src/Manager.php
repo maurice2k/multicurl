@@ -203,11 +203,10 @@ class Manager
                             $channel = $this->resourceChannelLookup[self::toHandleIdentifier($ch)];
                             $info = curl_getinfo($ch);
 
-                            if ($multiInfo['result'] === CURLE_OK) {
+                            if ($multiInfo['result'] === CURLE_OK || ($multiInfo['result'] === CURLE_WRITE_ERROR && $channel->isStreamAborted())) {
                                 $content = curl_multi_getcontent($ch);
 
                                 $channel->onReady($info, $content ?? '', $this);
-
                             } else if ($multiInfo['result'] === CURLE_OPERATION_TIMEOUTED) {
                                 if ($info['connect_time'] > 0 && $info['pretransfer_time'] > 0) {
                                     $channel->onTimeout(Channel::TIMEOUT_TOTAL, (int)($info['total_time'] * 1000), $this);
@@ -223,6 +222,7 @@ class Manager
                             $this->closeChannel($channel);
                             unset($ch);
                         }
+
 
                     } while ($msgInQueue > 0);
 
@@ -339,6 +339,12 @@ class Manager
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         }
 
+        if ($channel instanceof HttpChannel && $channel->isShowCurlCommand()) {
+            echo "--[ CURL COMMAND ]--------------------------------\n";
+            echo $channel->generateCurlCommand() . "\n";
+            echo "--------------------------------------------------\n";
+        }
+
         $channel->setCurlHandle($ch);
 
         return $ch;
@@ -374,5 +380,10 @@ class Manager
 
         curl_close($ch);
         $channel->setCurlHandle(null);
+
+        $nextChannel = $channel->popNextChannel();
+        if ($nextChannel !== null) {
+            $this->addChannel($nextChannel);
+        }
     }
 }

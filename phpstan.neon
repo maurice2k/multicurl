@@ -4,6 +4,9 @@ parameters:
     - src/
     - tests/
 
+  fileExtensions:
+    - php
+
   tmpDir: .cache/phpstan
 
   parallel:

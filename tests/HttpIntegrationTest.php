@@ -181,7 +181,8 @@ class HttpIntegrationTest extends TestCase
         
         $this->assertCount(1, $results);
 
-        $data = json_decode($results[0]['content'], true);
+        $content = $results[0]['content'];
+        $data = json_decode(is_string($content) ? $content : '', true);
         $this->assertIsArray($data);
         $this->assertArrayHasKey('data', $data);
         $this->assertEquals($testData, json_decode($data['data'], true));

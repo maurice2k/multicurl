@@ -84,7 +84,8 @@ class RpcMessage
      */
     protected static function getNextId(): string 
     {
-        return uniqid('id_', true);
+        static $counter = 0;
+        return (string)++$counter;
     }
     
     /**

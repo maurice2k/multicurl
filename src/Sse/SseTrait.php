@@ -143,10 +143,9 @@ trait SseTrait
                     if ($this->onEventCb !== null) {
                         $res = ($this->onEventCb)($event, $this);
                         if ($res === false) {
-                            return false;
-                        } else {
-                            return true;
+                            return false; // Abort stream if callback returns false
                         }
+                        // If $res is not false (e.g. null or true), continue processing loop.
                     }
 
                 }

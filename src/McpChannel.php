@@ -113,6 +113,8 @@ class McpChannel extends HttpChannel
 
             return $len;
         });
+
+        $this->setCurlOption(CURLOPT_FAILONERROR, true);
     }
 
     private function setupMessageCallbacks(): void

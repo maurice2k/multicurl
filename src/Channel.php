@@ -117,6 +117,11 @@ class Channel
     protected bool $streamAborted = false;
 
     /**
+     * Next channel to be added to the manager when this channel is done
+     */
+    protected ?Channel $nextChannel = null;
+
+    /**
      * Sets URL
      */
     public function setURL(string $url): void
@@ -181,6 +186,14 @@ class Channel
     public function isStreamable(): bool
     {
         return $this->streamable;
+    }
+
+    /**
+     * Returns whether the stream was aborted by the client (e.g., onStream callback returned false).
+     */
+    public function isStreamAborted(): bool
+    {
+        return $this->streamAborted;
     }
 
     /**
@@ -321,6 +334,26 @@ class Channel
     }
 
     /**
+     * Sets the next channel to be executed after this one completes.
+     */
+    public function setNextChannel(Channel $channel): void
+    {
+        $this->nextChannel = $channel;
+    }
+
+    /**
+     * Gets and removes the next channel to be executed.
+     *
+     * @return Channel|null The next channel, or null if none is set.
+     */
+    public function popNextChannel(): ?Channel
+    {
+        $next = $this->nextChannel;
+        $this->nextChannel = null;
+        return $next;
+    }
+
+    /**
      * Gets the stream object for buffer manipulation, creating one if it doesn't exist
      *
      * @return Stream Stream object (always returns a valid Stream)
@@ -344,7 +377,9 @@ class Channel
         // Always append data to the stream buffer
         $this->getStream()->append($data);
 
-        call_user_func($this->onReadyCb, $this, $info, $this->getStream(), $manager);
+        if ($this->onReadyCb !== null) {
+            call_user_func($this->onReadyCb, $this, $info, $this->getStream(), $manager);
+        }
     }
 
     /**
@@ -355,7 +390,9 @@ class Channel
      */
     public function onTimeout(int $timeoutType, int $elapsedMS, Manager $manager): void
     {
-        call_user_func($this->onTimeoutCb, $this, $timeoutType, $elapsedMS, $manager);
+        if ($this->onTimeoutCb !== null) {
+            call_user_func($this->onTimeoutCb, $this, $timeoutType, $elapsedMS, $manager);
+        }
     }
 
     /**
@@ -397,6 +434,10 @@ class Channel
             // we check here for streamable because it could have been disabled after the stream was
             // created and we cannot disable cURL's CURLOPT_WRITEFUNCTION after the request has been sent
 
+            if ($this->onStreamCb === null) {
+                return strlen($data);
+            }
+
             $res = call_user_func($this->onStreamCb, $this, $this->getStream(), $manager);
             if ($res === false) {
                 $this->streamAborted = true;
@@ -409,6 +450,8 @@ class Channel
     public function __clone(): void
     {
         $this->stream = null;
+        $this->streamAborted = false;
         $this->setCurlHandle(null);
+        $this->nextChannel = null;
     }
 }
