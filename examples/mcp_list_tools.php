@@ -39,10 +39,10 @@ $listToolsChannel->setOnMcpMessageCallback(function (RpcMessage $message, McpCha
                 } else {
                     $functionDef .= "()";
                 }
-                
+
                 echo "- Name: {$functionDef}\n";
                 echo "  Description: ".($tool['description'] ?? 'No description available')."\n";
-                
+
                 // Optionally print inputSchema
                 // echo "  Input Schema: " . json_encode($tool['inputSchema']) . "\n";
             }

@@ -15,9 +15,9 @@ class HttpChannelTest extends TestCase
     {
         $channel = new HttpChannel('http://example.com');
         $body = ['name' => 'test', 'value' => 123];
-        
+
         $channel->setBody($body, 'application/json');
-        
+
         $curlOptions = $channel->getCurlOptions();
         $this->assertEquals('{"name":"test","value":123}', $curlOptions[CURLOPT_POSTFIELDS]);
     }
@@ -26,9 +26,9 @@ class HttpChannelTest extends TestCase
     {
         $channel = new HttpChannel('http://example.com');
         $body = ['foo' => 'bar', 'baz' => [1, 2, 3]];
-        
+
         $channel->setBody($body, 'text/json');
-        
+
         $curlOptions = $channel->getCurlOptions();
         $this->assertEquals('{"foo":"bar","baz":[1,2,3]}', $curlOptions[CURLOPT_POSTFIELDS]);
     }
@@ -37,9 +37,9 @@ class HttpChannelTest extends TestCase
     {
         $channel = new HttpChannel('http://example.com');
         $body = ['username' => 'john', 'password' => 'secret123'];
-        
+
         $channel->setBody($body, 'application/x-www-form-urlencoded');
-        
+
         $curlOptions = $channel->getCurlOptions();
         $this->assertEquals('username=john&password=secret123', $curlOptions[CURLOPT_POSTFIELDS]);
     }
@@ -48,9 +48,9 @@ class HttpChannelTest extends TestCase
     {
         $channel = new HttpChannel('http://example.com');
         $body = 'raw string data';
-        
+
         $channel->setBody($body, 'text/plain');
-        
+
         $curlOptions = $channel->getCurlOptions();
         $this->assertEquals('raw string data', $curlOptions[CURLOPT_POSTFIELDS]);
     }
@@ -58,9 +58,9 @@ class HttpChannelTest extends TestCase
     public function testSetBodyWithNullBody(): void
     {
         $channel = new HttpChannel('http://example.com');
-        
+
         $channel->setBody(null, 'application/json');
-        
+
         $curlOptions = $channel->getCurlOptions();
         $this->assertArrayNotHasKey(CURLOPT_POSTFIELDS, $curlOptions);
     }
@@ -68,10 +68,10 @@ class HttpChannelTest extends TestCase
     public function testSetBodyWithArrayAndUnsupportedContentType(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        
+
         $channel = new HttpChannel('http://example.com');
         $body = ['key' => 'value'];
-        
+
         $channel->setBody($body, 'text/plain');
     }
 
@@ -79,9 +79,9 @@ class HttpChannelTest extends TestCase
     {
         $channel = new HttpChannel('http://example.com');
         $body = ['key' => 'value'];
-        
+
         $channel->setBody($body);
-        
+
         $curlOptions = $channel->getCurlOptions();
         $this->assertEquals('{"key":"value"}', $curlOptions[CURLOPT_POSTFIELDS]);
     }
@@ -90,9 +90,9 @@ class HttpChannelTest extends TestCase
     {
         $channel = new HttpChannel('http://example.com');
         $body = ['key' => 'value'];
-        
+
         $channel->setBody($body, '');
-        
+
         $curlOptions = $channel->getCurlOptions();
         $this->assertEquals('{"key":"value"}', $curlOptions[CURLOPT_POSTFIELDS]);
     }
@@ -100,13 +100,13 @@ class HttpChannelTest extends TestCase
     public function testSetBodyJsonFailureHandling(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        
+
         $channel = new HttpChannel('http://example.com');
-        
+
         // Create an array that will fail JSON encoding (infinite recursion)
         $body = [];
         $body['self'] = &$body;
-        
+
         $channel->setBody($body, 'application/json');
     }
 
@@ -114,10 +114,10 @@ class HttpChannelTest extends TestCase
     {
         $channel = new HttpChannel('http://example.com');
         $body = ['test' => 'data'];
-        
+
         // Test uppercase content type
         $channel->setBody($body, 'APPLICATION/JSON');
-        
+
         $curlOptions = $channel->getCurlOptions();
         $this->assertEquals('{"test":"data"}', $curlOptions[CURLOPT_POSTFIELDS]);
     }
@@ -130,9 +130,9 @@ class HttpChannelTest extends TestCase
             'nested' => ['a' => 1, 'b' => 2],
             'special_chars' => 'hello world & more'
         ];
-        
+
         $channel->setBody($body, 'application/x-www-form-urlencoded');
-        
+
         $curlOptions = $channel->getCurlOptions();
         $expected = 'simple=value&nested%5Ba%5D=1&nested%5Bb%5D=2&special_chars=hello+world+%26+more';
         $this->assertEquals($expected, $curlOptions[CURLOPT_POSTFIELDS]);

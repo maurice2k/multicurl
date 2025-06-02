@@ -130,7 +130,7 @@ class HttpChannel extends Channel
     public function setBody(string|array|null $body, ?string $contentType = null): void
     {
         $contentType = strtolower((string)$contentType);
-        
+
         if (is_array($body)) {
 
             if (empty($contentType)) {
@@ -365,7 +365,7 @@ class HttpChannel extends Channel
     public function __clone(): void
     {
         parent::__clone();
-        
+
         unset($this->curlOptions[CURLOPT_POST]);
         unset($this->curlOptions[CURLOPT_POSTFIELDS]);
         unset($this->curlOptions[CURLOPT_CUSTOMREQUEST]);

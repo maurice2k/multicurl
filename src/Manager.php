@@ -315,18 +315,18 @@ class Manager
             } else {
                 $channelToProcess = $channel;
             }
-            
+
             $ch = $this->createCurlHandleFromChannel($channelToProcess);
             curl_multi_add_handle($this->mh, $ch);
             $this->resourceChannelLookup[self::toHandleIdentifier($ch)] = $channelToProcess;
             $added++;
-            
+
             // If we've reached our limit, stop processing
             if ($added >= $number) {
                 break;
             }
         }
-        
+
         return $added;
     }
 

@@ -80,7 +80,7 @@ class McpChannel extends HttpChannel
     ) {
         $method = $rpcMessage ? self::METHOD_POST : self::METHOD_GET;
         parent::__construct($url, $method, $rpcMessage ? $rpcMessage->toJson() : null, 'application/json');
-        
+
         $this->setRpcMessage($rpcMessage);
 
         $this->setupSse();
@@ -133,7 +133,7 @@ class McpChannel extends HttpChannel
             }
             return null;
         });
-       
+
         // Hook into regular response handling
         parent::setOnReadyCallback(function($channel, $info, $stream, $manager) {
             // Only process JSON responses here (SSE is handled via onEventCallback)
@@ -168,7 +168,7 @@ class McpChannel extends HttpChannel
     public function setHeader(string $name, ?string $value = null): void
     {
         parent::setHeader($name, $value);
-        
+
         // Also update the initialize channel if it exists
         if ($this->initializeChannel !== null && $this !== $this->initializeChannel) {
             $this->initializeChannel->setHeader($name, $value);
@@ -181,7 +181,7 @@ class McpChannel extends HttpChannel
     public function setCurlOption(int $option, mixed $value): void
     {
         parent::setCurlOption($option, $value);
-        
+
         // Also update the initialize channel if it exists, except for CURLOPT_HTTPHEADER
         // which would cause double propagation (once through setCurlOption and once through setHeader)
         if ($this->initializeChannel !== null && $this !== $this->initializeChannel && $option !== CURLOPT_HTTPHEADER) {
@@ -360,10 +360,10 @@ class McpChannel extends HttpChannel
             $clientInfo,
             $capabilities
         ));
-        
+
         // Set up the initialization callback
         $mainChannel = $this; // Reference to the main channel to set session ID
-        
+
         $this->initializeChannel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel, Manager $manager) use ($mainChannel) {
             if ($message->isError()) {
                 // Propagate error to caller via exception
@@ -383,26 +383,26 @@ class McpChannel extends HttpChannel
                     $initializedNotificationChannel->appendNextChannel($mainChannel);  // this calls the main channel's logic
 
                     $channel->appendNextChannel($initializedNotificationChannel);
-                   
+
                     return false;
                 }
             }
-            
+
             return true;
         });
-        
+
         // Forward exceptions from initialization channel to main channel
         $this->initializeChannel->setOnExceptionCallback(function (\Exception $exception, McpChannel $channel) use ($mainChannel) {
             // Forward the exception to the main channel using our helper method
             $mainChannel->forwardException($exception, 'MCP initialization error');
         });
-        
+
         // Also set up error forwarding for the error callback
         $this->initializeChannel->setOnErrorCallback(function (Channel $channel, string $error, int $code, array $info, Manager $manager) use ($mainChannel) {
             // Forward the error to the main channel
             $mainChannel->onError($error, $code, $info, $manager);
         });
-        
+
         $this->setBeforeChannel($this->initializeChannel);
     }
 
@@ -413,7 +413,7 @@ class McpChannel extends HttpChannel
         $this->currentEventData = '';
         $this->currentEventName = '';
         $this->currentEventId = '';
-        
+
         // Important: Clear the initialize channel when cloning
         $this->initializeChannel = null;
 
@@ -442,7 +442,7 @@ class McpChannel extends HttpChannel
                     $exception
                 );
             }
-            
+
             // Call the exception callback directly
             ($this->onExceptionCb)($exception, $this);
         } else {

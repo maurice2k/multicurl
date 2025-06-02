@@ -78,8 +78,8 @@ class SseIntegrationTest extends TestCase
         $sseChannel->setOnEventCallback(function (SseEvent $event, SseChannel $channel) use (&$eventReceived, &$eventCount, $maxEvents): bool {
             $eventReceived = true;
             $eventCount++;
-            
-            //phpstan-ignore-next-line
+
+            // @phpstan-ignore-next-line
             return $eventCount < $maxEvents;
         });
 

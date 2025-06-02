@@ -349,13 +349,13 @@ class Channel
             $this->nextChannel = $channel;
             return;
         }
-        
+
         // Find the last channel in the chain
         $current = $this->nextChannel;
         while ($current->nextChannel !== null) {
             $current = $current->nextChannel;
         }
-        
+
         // Append the new channel
         $current->nextChannel = $channel;
     }
@@ -369,7 +369,7 @@ class Channel
     public function setBeforeChannel(Channel $channel, bool $setThisAsNext = false): void
     {
         $this->beforeChannel = $channel;
-        
+
         if ($setThisAsNext) {
             $channel->appendNextChannel($this);
         }
@@ -454,7 +454,7 @@ class Channel
             // Ignore write errors if the stream was aborted
             return;
         }
-        
+
         if ($this->onErrorCb !== null) {
             call_user_func($this->onErrorCb, $this, $message, $errno, $info, $manager);
         } else {

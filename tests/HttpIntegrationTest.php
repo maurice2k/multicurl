@@ -34,26 +34,26 @@ class HttpIntegrationTest extends TestCase
         $result = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
-        
+
         $this->assertEquals(200, $httpCode, 'HTTP server should be available');
     }
 
     public function testMultipleHttpRequests(): void
     {
         $manager = new Manager(3); // Set concurrency to 3
-        
+
         $results = [];
         $errors = [];
         $timeouts = [];
-        
+
         // Create 5 channels for testing
         for ($i = 1; $i <= 5; $i++) {
             $channel = HttpChannel::create($this->baseUrl . '/get?id=' . $i);
             $channel->setTimeout(5000); // 5 seconds timeout
-            
+
             // Capture the ID for use in callbacks
             $channelId = $i;
-            
+
             $channel->setOnReadyCallback(function($channel, $info, Stream $stream, $manager) use (&$results, $channelId) {
                 $content = $stream->consume();
                 $results[$channelId] = [
@@ -61,43 +61,43 @@ class HttpIntegrationTest extends TestCase
                     'content' => $content
                 ];
             });
-            
+
             $channel->setOnErrorCallback(function($channel, $message, $errno, $info) use (&$errors, $channelId) {
                 $errors[$channelId] = [
                     'message' => $message,
                     'code' => $errno
                 ];
             });
-            
+
             $channel->setOnTimeoutCallback(function($channel, $timeoutType, $elapsedMS, $manager) use (&$timeouts, $channelId) {
                 $timeouts[$channelId] = [
                     'type' => $timeoutType,
                     'elapsed' => $elapsedMS
                 ];
             });
-            
+
             // Add to manager
             $manager->addChannel($channel);
         }
-        
+
         // Run manager
         $manager->run();
-        
+
         // Verify all channels completed successfully
         $this->assertCount(5, $results);
         $this->assertCount(0, $errors);
         $this->assertCount(0, $timeouts);
-        
+
         // Verify each response contains the correct id
         foreach ($results as $id => $result) {
             $this->assertEquals(200, $result['status']);
             $content = (string)$result['content'];
             $jsonData = json_decode($content, true);
-            
+
             $this->assertIsArray($jsonData);
             $this->assertArrayHasKey('args', $jsonData);
             $this->assertArrayHasKey('id', $jsonData['args']);
-            
+
             // Convert both to strings for comparison
             $expectedId = (string)$id;
             $actualId = is_array($jsonData['args']['id']) ? $jsonData['args']['id'][0] : (string)$jsonData['args']['id'];
@@ -108,13 +108,13 @@ class HttpIntegrationTest extends TestCase
     public function testHttpErrorHandling(): void
     {
         $manager = new Manager(1);
-        
+
         $errors = [];
-        
+
         // Test 404 error
         $channel = HttpChannel::create($this->baseUrl . '/status/404');
         $channel->setTimeout(5000);
-        
+
         $channel->setOnReadyCallback(function($channel, $info, Stream $stream, $manager) use (&$errors) {
             $content = $stream->consume();
             $errors[] = [
@@ -123,7 +123,7 @@ class HttpIntegrationTest extends TestCase
                 'content' => $content
             ];
         });
-        
+
         $channel->setOnErrorCallback(function($channel, $message, $errno, $info) use (&$errors) {
             $errors[] = [
                 'type' => 'error',
@@ -131,10 +131,10 @@ class HttpIntegrationTest extends TestCase
                 'code' => $errno
             ];
         });
-        
+
         $manager->addChannel($channel);
         $manager->run();
-        
+
         // Should get a ready callback with 404 status, not an error
         $this->assertCount(1, $errors);
         $this->assertEquals('ready', $errors[0]['type']);
@@ -159,7 +159,7 @@ class HttpIntegrationTest extends TestCase
 
         $channel = HttpChannel::create($this->baseUrl . '/post', HttpChannel::METHOD_POST, $testData);
         $channel->setTimeout(5000);
-        
+
         $channel->setOnReadyCallback(function($channel, $info, Stream $stream, $manager) use (&$results) {
             $content = (string)$stream->consume();
             $results[] = [
@@ -167,7 +167,7 @@ class HttpIntegrationTest extends TestCase
                 'info' => $info,
             ];
         });
-        
+
         $channel->setOnErrorCallback(function($channel, $message, $errno, $info) use (&$results) {
             $results[] = [
                 'content' => null,
@@ -178,7 +178,7 @@ class HttpIntegrationTest extends TestCase
         });
         $manager->addChannel($channel);
         $manager->run();
-        
+
         $this->assertCount(1, $results);
 
         $content = $results[0]['content'];
@@ -191,23 +191,23 @@ class HttpIntegrationTest extends TestCase
     public function testConcurrentRequests(): void
     {
         $manager = new Manager(10); // Concurrency of 2
-        
+
         $startTime = microtime(true);
         $processingTimes = [];
         $errors = [];
-        
+
         // Create 4 channels with delays to test concurrency
         for ($i = 1; $i <= 10; $i++) {
             $delay = 2; // 1 second delay per request
             $channel = HttpChannel::create($this->baseUrl . '/delay/' . $delay);
             $channel->setTimeout(2500);
-            
+
             $channelId = $i;
-            
+
             $channel->setOnReadyCallback(function($channel, $info, Stream $stream, $manager) use (&$processingTimes, $startTime, $channelId) {
                 $processingTimes[$channelId] = microtime(true) - $startTime;
             });
-            
+
             $channel->setOnErrorCallback(function($channel, $message, $errno, $info) use (&$errors, $channelId) {
                 $errors[$channelId] = [
                     'message' => $message,
@@ -215,13 +215,13 @@ class HttpIntegrationTest extends TestCase
                     'info' => $info,
                 ];
             });
-            
+
             $manager->addChannel($channel);
         }
-        
+
         $manager->run();
         $totalTime = microtime(true) - $startTime;
-        
+
         // With concurrency of 10 and 10 requests of 2 seconds each,
         // total time should be around 2 seconds
         $this->assertLessThan(2.5, $totalTime, 'Concurrent execution should be faster than sequential');

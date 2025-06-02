@@ -38,39 +38,39 @@ class RpcMessage
      * JSON-RPC version (always 2.0)
      */
     protected string $jsonrpc = '2.0';
-    
+
     /**
      * Message type: request, notification, or response
      */
     protected string $type;
-    
+
     /**
      * Method name for requests and notifications
      */
     protected ?string $method = null;
-    
+
     /**
      * Parameters for requests and notifications
      */
     protected mixed $params = null;
-    
+
     /**
      * Result for successful responses
      */
     protected mixed $result = null;
-    
+
     /**
      * Error for error responses
      * 
      * @var array<string, mixed>|null
      */
     protected ?array $error = null;
-    
+
     /**
      * Message ID for requests and responses (null for notifications)
      */
     protected mixed $id = null;
-    
+
     /**
      * Constants for message types
      */
@@ -78,7 +78,7 @@ class RpcMessage
     public const TYPE_NOTIFICATION = 'notification';
     public const TYPE_RESPONSE = 'response';
     public const TYPE_ERROR = 'error';
-    
+
     /**
      * Generate a unique message ID
      */
@@ -87,7 +87,7 @@ class RpcMessage
         static $counter = 0;
         return (string)++$counter;
     }
-    
+
     /**
      * Create a new initialize request message
      *
@@ -128,16 +128,16 @@ class RpcMessage
         if ($id === null) {
             $id = self::getNextId();
         }
-        
+
         $message = new self();
         $message->type = self::TYPE_REQUEST;
         $message->method = $method;
         $message->params = empty($params) ? new \stdClass() : $params;
         $message->id = $id;
-        
+
         return $message;
     }
-    
+
     /**
      * Create a new notification message (request without ID)
      */
@@ -147,10 +147,10 @@ class RpcMessage
         $message->type = self::TYPE_NOTIFICATION;
         $message->method = $method;
         $message->params = $params;
-        
+
         return $message;
     }
-    
+
     /**
      * Create a new response message
      */
@@ -160,10 +160,10 @@ class RpcMessage
         $message->type = self::TYPE_RESPONSE;
         $message->result = $result;
         $message->id = $id;
-        
+
         return $message;
     }
-    
+
     /**
      * Create a new error response message
      */
@@ -175,16 +175,16 @@ class RpcMessage
             'code' => $code,
             'message' => $message
         ];
-        
+
         if ($data !== null) {
             $rpcMessage->error['data'] = $data;
         }
-        
+
         $rpcMessage->id = $id;
-        
+
         return $rpcMessage;
     }
-    
+
     /**
      * Parse JSON string into RpcMessage
      */
@@ -194,10 +194,10 @@ class RpcMessage
         if ($data === null) {
             throw new \InvalidArgumentException('Invalid JSON: ' . json_last_error_msg());
         }
-        
+
         return self::fromArray($data);
     }
-    
+
     /**
      * Parse array into RpcMessage
      * 
@@ -206,12 +206,12 @@ class RpcMessage
     public static function fromArray(array $data): self
     {
         $message = new self();
-        
+
         // Verify JSON-RPC version
         if (!isset($data['jsonrpc']) || $data['jsonrpc'] !== '2.0') {
             throw new \InvalidArgumentException('Invalid or no JSON-RPC version in message: ' . json_encode($data));
         }
-        
+
         // Determine message type
         if (isset($data['method'])) {
             if (isset($data['id'])) {
@@ -232,10 +232,10 @@ class RpcMessage
             }
             $message->id = $data['id'] ?? null;
         }
-        
+
         return $message;
     }
-    
+
     /**
      * Convert to array for JSON encoding
      * 
@@ -246,14 +246,14 @@ class RpcMessage
         $result = [
             'jsonrpc' => $this->jsonrpc
         ];
-        
+
         if ($this->type === self::TYPE_REQUEST || $this->type === self::TYPE_NOTIFICATION) {
             $result['method'] = $this->method;
-            
+
             if ($this->params !== null) {
                 $result['params'] = $this->params;
             }
-            
+
             if ($this->type === self::TYPE_REQUEST) {
                 $result['id'] = $this->id;
             }
@@ -263,15 +263,15 @@ class RpcMessage
             } else {
                 $result['result'] = $this->result;
             }
-            
+
             if ($this->id !== null) {
                 $result['id'] = $this->id;
             }
         }
-        
+
         return $result;
     }
-    
+
     /**
      * Convert to JSON string
      */
@@ -283,7 +283,7 @@ class RpcMessage
         }
         return $json;
     }
-    
+
     /**
      * Get message type
      */
@@ -291,7 +291,7 @@ class RpcMessage
     {
         return $this->type;
     }
-    
+
     /**
      * Get method name
      */
@@ -299,7 +299,7 @@ class RpcMessage
     {
         return $this->method;
     }
-    
+
     /**
      * Get parameters
      */
@@ -307,7 +307,7 @@ class RpcMessage
     {
         return $this->params;
     }
-    
+
     /**
      * Get result
      */
@@ -315,7 +315,7 @@ class RpcMessage
     {
         return $this->result;
     }
-    
+
     /**
      * Get error
      * 
@@ -325,7 +325,7 @@ class RpcMessage
     {
         return $this->error;
     }
-    
+
     /**
      * Get ID
      */
@@ -333,7 +333,7 @@ class RpcMessage
     {
         return $this->id;
     }
-    
+
     /**
      * Check if message is a request
      */
@@ -341,7 +341,7 @@ class RpcMessage
     {
         return $this->type === self::TYPE_REQUEST;
     }
-    
+
     /**
      * Check if message is a notification
      */
@@ -349,7 +349,7 @@ class RpcMessage
     {
         return $this->type === self::TYPE_NOTIFICATION;
     }
-    
+
     /**
      * Check if message is a response
      */
@@ -357,7 +357,7 @@ class RpcMessage
     {
         return $this->type === self::TYPE_RESPONSE;
     }
-    
+
     /**
      * Check if message is an error
      */

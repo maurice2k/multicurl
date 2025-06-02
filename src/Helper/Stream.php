@@ -93,7 +93,7 @@ class Stream
 
         $line = substr($this->buffer, 0, $pos);
         $this->buffer = substr($this->buffer, $pos + 1);
-        
+
         // Remove \r if present (handles \r\n line endings)
         return rtrim($line, "\r");
     }
@@ -112,7 +112,7 @@ class Stream
 
         $consumed = substr($this->buffer, 0, $bytes);
         $this->buffer = substr($this->buffer, $bytes);
-        
+
         return $consumed;
     }
 
@@ -133,7 +133,7 @@ class Stream
         $endPos = $includeDelimiter ? $pos + strlen($delimiter) : $pos;
         $consumed = substr($this->buffer, 0, $endPos);
         $this->buffer = substr($this->buffer, $pos + strlen($delimiter));
-        
+
         return $consumed;
     }
 
