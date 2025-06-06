@@ -15,14 +15,13 @@ COPY --from=composer:2.8 /usr/bin/composer /usr/bin/composer
 # Set working directory to root for relative paths
 WORKDIR /multicurl
 
-# Copy source code
-COPY . .
-
 # Install dependencies
+COPY composer.json ./
 RUN composer install --no-scripts --no-autoloader
-
-# Generate autoloader
 RUN composer dump-autoload --optimize
+
+# Copy source code (without vendor directory)
+COPY . .
 
 # Default command
 CMD ["vendor/bin/phpunit"]

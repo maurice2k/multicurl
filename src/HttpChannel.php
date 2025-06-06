@@ -161,6 +161,11 @@ class HttpChannel extends Channel
         }
     }
 
+    public function getBody(): ?string
+    {
+        return $this->body;
+    }
+
     /**
      * Sets HTTP version
      */
@@ -254,13 +259,13 @@ class HttpChannel extends Channel
         $command = 'curl ';
 
         // URL
-        $command .= escapeshellarg($this->getUrl()) . " ";
+        $command .= escapeshellarg($this->getURL()) . " ";
 
         // Method
         if ($this->method === self::METHOD_POST) {
             $command .= "-X POST ";
         } elseif ($this->method !== self::METHOD_GET) {
-            $command .= "-X " . escapeshellarg($this->method) . " ";
+            $command .= "-X " . escapeshellarg(strtoupper($this->method)) . " ";
         }
 
         // Headers
@@ -285,10 +290,14 @@ class HttpChannel extends Channel
                     }
                     break;
                 case CURLOPT_USERAGENT:
-                    $command .= "-A " . escapeshellarg((string)$value) . " ";
+                    if (is_string($value)) {
+                        $command .= "-A " . escapeshellarg($value) . " ";
+                    }
                     break;
                 case CURLOPT_USERPWD:
-                    $command .= "-u " . escapeshellarg((string)$value) . " ";
+                    if (is_string($value)) {
+                        $command .= "-u " . escapeshellarg($value) . " ";
+                    }
                     break;
                 case CURLOPT_FOLLOWLOCATION:
                     if ($value) {
@@ -296,31 +305,41 @@ class HttpChannel extends Channel
                     }
                     break;
                 case CURLOPT_MAXREDIRS:
-                    if ($curlOptions[CURLOPT_FOLLOWLOCATION] ?? false) {
+                    if (($curlOptions[CURLOPT_FOLLOWLOCATION] ?? false) && is_int($value)) {
                         $command .= "--max-redirs " . escapeshellarg((string)$value) . " ";
                     }
                     break;
                 case CURLOPT_COOKIEJAR:
-                    $command .= "-c " . escapeshellarg((string)$value) . " ";
+                    if (is_string($value)) {
+                        $command .= "-c " . escapeshellarg($value) . " ";
+                    }
                     break;
                 case CURLOPT_COOKIEFILE:
                     // only add if not already added by COOKIEJAR
-                    if (!isset($curlOptions[CURLOPT_COOKIEJAR]) || $curlOptions[CURLOPT_COOKIEJAR] !== $value) {
-                         $command .= "-b " . escapeshellarg((string)$value) . " ";
+                    if (is_string($value) && (!isset($curlOptions[CURLOPT_COOKIEJAR]) || $curlOptions[CURLOPT_COOKIEJAR] !== $value)) {
+                         $command .= "-b " . escapeshellarg($value) . " ";
+                    }
+                    break;
+                case CURLOPT_TIMEOUT:
+                    if (is_int($value)) {
+                        $command .= "--max-time " . escapeshellarg((string)$value) . " ";
                     }
                     break;
                 case CURLOPT_TIMEOUT_MS:
-                    $command .= "--connect-timeout " . escapeshellarg((string)($value / 1000)) . " ";
+                    if (is_int($value)) {
+                        $command .= "--max-time " . escapeshellarg((string)($value / 1000)) . " ";
+                    }
+                    break;
+                case CURLOPT_CONNECTTIMEOUT:
+                    if (is_int($value)) {
+                        $command .= "--connect-timeout " . escapeshellarg((string)$value) . " ";
+                    }
                     break;
                 case CURLOPT_CONNECTTIMEOUT_MS:
-                     $command .= "--connect-timeout " . escapeshellarg((string)($value / 1000)) . " ";
+                    if (is_int($value)) {
+                        $command .= "--connect-timeout " . escapeshellarg((string)($value / 1000)) . " ";
+                    }
                     break;
-                case CURLOPT_TIMEOUT:
-                     $command .= "--max-time " . escapeshellarg((string)$value) . " ";
-                     break;
-                 case CURLOPT_CONNECTTIMEOUT:
-                      $command .= "--connect-timeout " . escapeshellarg((string)$value) . " ";
-                      break;
                 // Skip options already handled or not directly translatable to CLI
                 case CURLOPT_URL:
                 case CURLOPT_POST:

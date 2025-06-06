@@ -69,6 +69,11 @@ class McpChannel extends HttpChannel
     private ?\Closure $onExceptionCb = null;
 
     /**
+     * Response content type from server
+     */
+    protected string $responseContentType = '';
+
+    /**
      * Constructor with setup for both SSE and regular JSON response handling
      *
      * @param string $url MCP endpoint URL
@@ -86,6 +91,8 @@ class McpChannel extends HttpChannel
         $this->setupSse();
         $this->setupResponseHeaderCallback();
         $this->setupMessageCallbacks();
+
+        $this->setFollowRedirects(true, 2);
     }
 
     private function setupResponseHeaderCallback(): void
@@ -95,19 +102,17 @@ class McpChannel extends HttpChannel
             $len = strlen($headerLine);
             $header = trim($headerLine);
 
-            // Skip empty lines
-            if (empty($header)) {
-                return $len;
+            if (empty($header)) { // end of headers
+                // Set up SSE processing only if we detected an event stream
+                if (stripos($this->responseContentType, 'text/event-stream') === false) {
+                    $this->setStreamable(false);
+                }
             }
 
             // Process content type
             if (stripos($header, 'Content-Type:') === 0) {
                 $responseContentType = trim(substr($header, 13));
-
-                // Set up SSE processing only if we detect an event stream
-                if (stripos($responseContentType, 'text/event-stream') === false) {
-                    $this->setStreamable(false);
-                }
+                $this->responseContentType = $responseContentType;
             }
 
             // Extract MCP session ID if present
@@ -283,27 +288,38 @@ class McpChannel extends HttpChannel
     protected function processJsonMessage(string $json, Manager $manager): ?bool
     {
         $data = json_decode($json, true);
-        if ($data === null) 
-        {
+        if ($data === null) {
             // Invalid JSON, ignore
             return null;
         }
+
         if (is_array($data) && isset($data[0])) {
             // Batch of messages
+            $res = true;
             foreach ($data as $item) {
                 try {
                     $message = RpcMessage::fromArray($item);
-                    return $this->onMcpMessage($message, $manager);
+                    $res = $res && $this->onMcpMessage($message, $manager);
+                    if ($message->isError()) {
+                        // if the message is an error the overall result will be false
+                        $res = false;
+                    }
                 } catch (\Exception $e) {
                     // Skip invalid messages
                     $this->onException($e);
                 }
             }
+            return $res;
         } else {
             // Single message
             try {
                 $message = RpcMessage::fromArray($data);
-                return $this->onMcpMessage($message, $manager);
+                $res = $this->onMcpMessage($message, $manager);
+                if ($message->isError()) {
+                    // if the message is an error, stop processing
+                    $res = false;
+                }
+                return $res;
             } catch (\Exception $e) {
                 // Ignore invalid message
                 $this->onException($e);
@@ -380,6 +396,10 @@ class McpChannel extends HttpChannel
 
                     $initializedNotificationChannel = clone($channel);
                     $initializedNotificationChannel->setRpcMessage(RpcMessage::notification('notifications/initialized'));
+                    $initializedNotificationChannel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel, Manager $manager) {
+                        // some MCP servers will hang if the connection is not closed after the initialized notification is sent
+                        return false; // force closing the connection
+                    });
                     $initializedNotificationChannel->appendNextChannel($mainChannel);  // this calls the main channel's logic
 
                     $channel->appendNextChannel($initializedNotificationChannel);
@@ -414,8 +434,8 @@ class McpChannel extends HttpChannel
         $this->currentEventName = '';
         $this->currentEventId = '';
 
-        // Important: Clear the initialize channel when cloning
         $this->initializeChannel = null;
+        $this->responseContentType = '';
 
         $this->setupSse();
         $this->setupResponseHeaderCallback();

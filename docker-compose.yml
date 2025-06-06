@@ -7,6 +7,18 @@ services:
     networks:
       - test-network
 
+  # MCP Everything server for MCP integration tests
+  mcp-everything:
+    build:
+      context: tests/integration/docker/mcp-everything
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    networks:
+      - test-network
+    environment:
+      - PORT=3001
+
   # PHP 8.1 container
   php81:
     build:
@@ -18,6 +30,7 @@ services:
       - test-network
     environment:
       - TEST_HTTP_SERVER=httpbin:8080
+      - TEST_MCP_SERVER=mcp-everything:3001
 
   # PHP 8.2 container
   php82:
@@ -30,6 +43,7 @@ services:
       - test-network
     environment:
       - TEST_HTTP_SERVER=httpbin:8080
+      - TEST_MCP_SERVER=mcp-everything:3001
 
   # PHP 8.3 container
   php83:
@@ -42,6 +56,7 @@ services:
       - test-network
     environment:
       - TEST_HTTP_SERVER=httpbin:8080
+      - TEST_MCP_SERVER=mcp-everything:3001
 
   # PHP 8.4 container
   php84:
@@ -54,6 +69,7 @@ services:
       - test-network
     environment:
       - TEST_HTTP_SERVER=httpbin:8080
+      - TEST_MCP_SERVER=mcp-everything:3001
 
 networks:
   test-network:

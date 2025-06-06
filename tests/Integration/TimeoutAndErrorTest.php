@@ -30,11 +30,11 @@ class TimeoutAndErrorTest extends TestCase
         $results = [];
         $errors = [];
 
-        // Use a non-routable IP to trigger connection timeout
-        // 10.255.255.1 is a commonly used non-routable address for testing
-        $channel = HttpChannel::create('http://10.255.255.1:8000/test');
-        $channel->setConnectionTimeout(500); // 500ms connection timeout
-        $channel->setTimeout(2000); // 2s total timeout to ensure connection timeout triggers first
+        // Use a routable IP with a filtered port to trigger connection timeout
+        // 192.0.2.1 is a test IP from RFC 5737 that should route but not respond
+        $channel = HttpChannel::create('http://192.0.2.1:81/test');
+        $channel->setConnectionTimeout(100);
+        $channel->setTimeout(1000);
 
         $channel->setOnTimeoutCallback(function($channel, $timeoutType, $elapsedMS, $manager) use (&$timeouts) {
             $timeouts[] = [
@@ -58,8 +58,8 @@ class TimeoutAndErrorTest extends TestCase
         // Should get connection timeout
         $this->assertCount(1, $timeouts);
         $this->assertEquals(Channel::TIMEOUT_CONNECTION, $timeouts[0]['type']);
-        $this->assertGreaterThanOrEqual(450, $timeouts[0]['elapsed']); // At least close to our timeout
-        $this->assertLessThan(1000, $timeouts[0]['elapsed']); // But not the total timeout
+        $this->assertGreaterThanOrEqual(90, $timeouts[0]['elapsed']);
+        $this->assertLessThan(150, $timeouts[0]['elapsed']);
         $this->assertCount(0, $results);
         $this->assertCount(0, $errors);
     }
@@ -158,7 +158,7 @@ class TimeoutAndErrorTest extends TestCase
         $errors = [];
 
         // Channel 1: Connection timeout
-        $channel1 = HttpChannel::create('http://10.255.255.1:80/test');
+        $channel1 = HttpChannel::create('http://192.0.2.1:81/test');
         $channel1->setConnectionTimeout(300);
         $channel1->setTimeout(2000);
 

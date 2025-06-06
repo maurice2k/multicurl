@@ -335,6 +335,7 @@ class Manager
      */
     protected function createCurlHandleFromChannel(Channel $channel): \CurlHandle
     {
+        /** @var \CurlHandle $ch */
         $ch = curl_init();
 
         foreach ($channel->getCurlOptions() as $option => $value) {
@@ -353,9 +354,12 @@ class Manager
         }
 
         if ($channel instanceof HttpChannel && $channel->isShowCurlCommand()) {
-            echo "--[ CURL COMMAND ]--------------------------------\n";
-            echo $channel->generateCurlCommand() . "\n";
-            echo "--------------------------------------------------\n";
+            fwrite(STDERR, "--[ CURL COMMAND ]--------------------------------\n");
+            if ($channel->getBody() !== null) {
+                fwrite(STDERR, "# body size: " . strlen($channel->getBody()) . "\n");
+            }
+            fwrite(STDERR, $channel->generateCurlCommand() . "\n");
+            fwrite(STDERR, "--------------------------------------------------\n");
         }
 
         $channel->setCurlHandle($ch);

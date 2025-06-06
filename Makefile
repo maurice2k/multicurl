@@ -7,7 +7,7 @@ build: ## Build Docker images
 	docker-compose build --with-dependencies
 
 up: ## Start services (HTTP server)
-	docker-compose up -d httpbin
+	docker-compose up -d httpbin mcp-everything
 
 down: ## Stop all services
 	docker-compose down

@@ -1,9 +1,19 @@
 # maurice2k/multicurl
 
-`Maurice\Multicurl` provides an easy object-oriented interface for PHP's `curl_multi_*` functions.
-It's not only a wrapper but also provides the event loop, takes care that a given number of concurrent connections is not exceeded and also handles timeouts (connection and total timeouts).
+`Maurice\Multicurl` provides a powerful, easy-to-use object-oriented interface for PHP's `curl_multi_*` functions, enabling high-performance concurrent HTTP requests with automatic connection management.
 
-`Maurice\Multicurl` basically consists of a `Manager` that orchestrates multiple `Channel`-based instances. In theory a channel can be of any connection type that cURL supports while practically the current version of `Maurice\Multicurl` only implements an `HttpChannel` on top of `Channel`.
+Beyond being just a wrapper, it includes a complete event loop system that intelligently manages concurrent connections, enforces connection limits, and handles both connection and total timeouts automatically.
+
+## Key Components
+
+**`Manager`** - Orchestrates multiple channels, handling the event loop and connection concurrency automatically.
+
+**`HttpChannel`** - The primary class you'll use for making HTTP requests. It provides a clean, fluent API for GET/POST requests, authentication, headers, redirects, and more.
+
+**Specialized Channels:**
+- **`McpChannel`** - Implements a "Streamable HTTP" client for the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/specification/2025-03-26) for AI model communication
+- **`SseChannel`** - Handles [Server-Sent Events](https://html.spec.whatwg.org/multipage/server-sent-events.html) for real-time streaming
+
 
 ## Installation
 

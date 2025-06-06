@@ -100,16 +100,81 @@ class RpcMessage
         ?array $capabilities = null,
         mixed $id = null
     ): self {
+
+        // Process capabilities to ensure object properties are objects, not arrays
+        $processedCapabilities = self::processCapabilities($capabilities);
+        
         $params = [
             'protocolVersion' => $protocolVersion,
-            'capabilities' => $capabilities ?? new \stdClass(),
-            'clientInfo' => $clientInfo ?? [
+            'capabilities' => $processedCapabilities,
+            'clientInfo' => empty($clientInfo) ? [
                 'name' => 'maurice2k/multicurl MCP Client',
-                'version' => '1.0.0', // Consider making this dynamic or configurable
-            ],
+                'version' => '1.0.0',
+            ] : $clientInfo,
         ];
 
         return self::request('initialize', $params, $id);
+    }
+
+    /**
+     * Process capabilities to ensure object properties are objects when empty
+     * 
+     * @param array<string, mixed>|null $capabilities
+     * @return array<string, mixed>|\stdClass
+     */
+    protected static function processCapabilities(?array $capabilities): array|\stdClass
+    {
+        if (empty($capabilities)) {
+            return new \stdClass();
+        }
+
+        // Properties that should be objects according to MCP schema
+        $objectProperties = [
+            'experimental',  // { [key: string]: object }
+            'sampling',      // object
+            'logging',       // object  
+            'completions',   // object
+        ];
+
+        // Properties that are objects with sub-properties
+        $structuredProperties = [
+            'roots' => ['listChanged'],
+            'prompts' => ['listChanged'], 
+            'resources' => ['subscribe', 'listChanged'],
+            'tools' => ['listChanged'],
+        ];
+
+        $processed = $capabilities;
+
+        // Handle simple object properties
+        foreach ($objectProperties as $prop) {
+            if (isset($processed[$prop]) && empty($processed[$prop])) {
+                $processed[$prop] = new \stdClass();
+            }
+        }
+
+        // Handle structured object properties
+        foreach ($structuredProperties as $prop => $subProps) {
+            if (isset($processed[$prop])) {
+                if (empty($processed[$prop])) {
+                    $processed[$prop] = new \stdClass();
+                } elseif (is_array($processed[$prop])) {
+                    // Ensure it's treated as an object if it has no numeric keys
+                    $hasNumericKeys = false;
+                    foreach (array_keys($processed[$prop]) as $key) {
+                        if (is_numeric($key)) {
+                            $hasNumericKeys = true;
+                            break;
+                        }
+                    }
+                    if (!$hasNumericKeys && empty($processed[$prop])) {
+                        $processed[$prop] = new \stdClass();
+                    }
+                }
+            }
+        }
+
+        return $processed;
     }
 
     /**
@@ -118,6 +183,13 @@ class RpcMessage
     public static function toolsListRequest(mixed $id = null): self
     {
         return self::request('tools/list', null, $id);
+    }
+    /**
+     * Create a new prompts/list request message
+     */
+    public static function promptsListRequest(mixed $id = null): self
+    {
+        return self::request('prompts/list', null, $id);
     }
 
     /**
@@ -364,5 +436,15 @@ class RpcMessage
     public function isError(): bool
     {
         return $this->type === self::TYPE_ERROR;
+    }
+
+    public function getErrorMessage(): string
+    {
+        return $this->error['message'] ?? '';
+    }
+
+    public function getErrorCode(): int
+    {
+        return $this->error['code'] ?? 0;
     }
 } 

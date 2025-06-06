@@ -41,7 +41,7 @@ use Maurice\Multicurl\Manager;
 trait SseTrait
 {
     /**
-     * @var \Closure(SseEvent, self, Manager): ?bool
+     * @var \Closure(SseEvent $event, self $sseChannel, Manager $manager): ?bool
      */
     private $onEventCb = null;
 
@@ -76,7 +76,7 @@ trait SseTrait
      * If the callback returns false, the stream will be closed and the connection aborted.
      * Return null/true in the callback to continue streaming data.
      *
-     * @param \Closure(Channel, Stream, Manager): ?bool $onStreamCb
+     * @param \Closure(Channel $channel, Stream $stream, Manager $manager): ?bool $onStreamCb
      */
     abstract public function setOnStreamCallback(\Closure $onStreamCb): void;
 
@@ -85,7 +85,7 @@ trait SseTrait
      *
      * If the callback returns false, the stream will be closed.
      *
-     * @param \Closure(SseEvent, self, Manager): ?bool $onEventCb
+     * @param \Closure(SseEvent $event, self $sseChannel, Manager $manager): ?bool $onEventCb
      */
     public function setOnEventCallback(?\Closure $onEventCb): void
     {
@@ -104,7 +104,8 @@ trait SseTrait
 
         // Set the stream callback to process the stream
         $this->setOnStreamCallback(function(Channel $channel, Stream $stream, Manager $manager): ?bool {
-            if ($this->processSseStream($manager) === false) {
+            $res = $this->processSseStream($manager);
+            if ($res === false) {
                 return false;
             }
             return null;

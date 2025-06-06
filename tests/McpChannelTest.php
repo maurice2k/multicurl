@@ -37,24 +37,10 @@ class McpChannelTest extends TestCase
         $this->assertInstanceOf(RpcMessage::class, $beforeChannel->getRpcMessage());
         $this->assertEquals('initialize', $beforeChannel->getRpcMessage()->getMethod());
 
-        // Now check if we have the proper channel chain
+        // At this point, the next channel should not be set yet since it's only
+        // created during the callback when a response is received
         $nextChannel = $beforeChannel->popNextChannel();
-        $this->assertNotNull($nextChannel);
-        $this->assertInstanceOf(McpChannel::class, $nextChannel);
-
-        // Get the RPC message method to check what kind of channel it is
-        $rpcMethod = $nextChannel->getRpcMessage()->getMethod();
-
-        if ($rpcMethod === 'notifications/initialized') {
-            // If it's the notification channel, we expect the main channel next
-            $finalChannel = $nextChannel->popNextChannel();
-            $this->assertSame($mainChannel, $finalChannel);
-        } elseif ($rpcMethod === 'tools/list') {
-            // If it's directly the tools/list, verify it's the main channel
-            $this->assertSame($mainChannel, $nextChannel);
-        } else {
-            $this->fail("Unexpected RPC message method: $rpcMethod");
-        }
+        $this->assertNull($nextChannel, 'Next channel should not be set until response is received');
     }
 
     /**
@@ -220,6 +206,161 @@ class McpChannelTest extends TestCase
             'Exception message does not contain the expected context');
         $this->assertStringContainsString('Test initialization exception', $caughtException->getMessage(), 
             'Original exception message not present in the forwarded exception');
+    }
+
+    public function testMcpChannelCreation(): void
+    {
+        // Test basic MCP channel creation and configuration
+        $initMessage = RpcMessage::initializeRequest(
+            protocolVersion: '2025-03-26',
+            clientInfo: [
+                'name' => 'multicurl-test-client',
+                'version' => '1.0.0'
+            ],
+            capabilities: [
+                'roots' => ['listChanged' => true],
+                'sampling' => []
+            ]
+        );
+
+        $channel = new McpChannel('http://localhost:3001/mcp', $initMessage);
+        $channel->setTimeout(10000);
+
+        // Verify channel is properly configured
+        $this->assertInstanceOf(McpChannel::class, $channel);
+        $this->assertInstanceOf(RpcMessage::class, $channel->getRpcMessage());
+        $this->assertEquals('initialize', $channel->getRpcMessage()->getMethod());
+        $this->assertTrue($channel->getRpcMessage()->isRequest());
+        
+        // Test that we can set MCP-specific callbacks
+        $callbackSet = false;
+        $channel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel, Manager $manager) use (&$callbackSet): bool {
+            $callbackSet = true;
+            return true;
+        });
+        
+        $this->assertTrue(true, 'MCP channel created and configured successfully');
+    }
+
+    public function testMcpMessageCreation(): void
+    {
+        // Test creating different types of MCP messages
+        
+        // Test tools/list request
+        $toolsMessage = RpcMessage::toolsListRequest();
+        $this->assertInstanceOf(RpcMessage::class, $toolsMessage);
+        $this->assertEquals('tools/list', $toolsMessage->getMethod());
+        $this->assertTrue($toolsMessage->isRequest());
+        
+        // Test prompts/list request
+        $promptsMessage = RpcMessage::request('prompts/list');
+        $this->assertInstanceOf(RpcMessage::class, $promptsMessage);
+        $this->assertEquals('prompts/list', $promptsMessage->getMethod());
+        $this->assertTrue($promptsMessage->isRequest());
+        
+        // Test notification
+        $notificationMessage = RpcMessage::notification('notifications/roots/list_changed', [
+            'roots' => [['uri' => 'file:///test', 'name' => 'Test Root']]
+        ]);
+        $this->assertInstanceOf(RpcMessage::class, $notificationMessage);
+        $this->assertEquals('notifications/roots/list_changed', $notificationMessage->getMethod());
+        $this->assertTrue($notificationMessage->isNotification());
+        
+        // Test initialize request
+        $initMessage = RpcMessage::initializeRequest();
+        $this->assertInstanceOf(RpcMessage::class, $initMessage);
+        $this->assertEquals('initialize', $initMessage->getMethod());
+        $this->assertTrue($initMessage->isRequest());
+        
+        $this->assertTrue(true, 'All MCP message types created successfully');
+    }
+
+    public function testMcpJsonSerialization(): void
+    {
+        // Test JSON serialization and deserialization of MCP messages
+        
+        // Test request message serialization
+        $requestMessage = RpcMessage::request('tools/list', ['param1' => 'value1']);
+        $requestJson = $requestMessage->toJson();
+        $this->assertIsString($requestJson);
+        $this->assertStringContainsString('"method":"tools\/list"', $requestJson);
+        $this->assertStringContainsString('"jsonrpc":"2.0"', $requestJson);
+        
+        // Test deserialization
+        $deserializedRequest = RpcMessage::fromJson($requestJson);
+        $this->assertEquals($requestMessage->getMethod(), $deserializedRequest->getMethod());
+        $this->assertEquals($requestMessage->getType(), $deserializedRequest->getType());
+        
+        // Test notification serialization
+        $notification = RpcMessage::notification('notifications/progress', ['status' => 'complete']);
+        $notificationJson = $notification->toJson();
+        $this->assertIsString($notificationJson);
+        $this->assertStringContainsString('"method":"notifications\/progress"', $notificationJson);
+        $this->assertStringNotContainsString('"id":', $notificationJson); // Notifications have no ID
+        
+        // Test error message serialization
+        $errorMessage = RpcMessage::error(-32601, 'Method not found', ['detail' => 'Unknown method'], 'test-id');
+        $errorJson = $errorMessage->toJson();
+        $this->assertIsString($errorJson);
+        $this->assertStringContainsString('"error":', $errorJson);
+        $this->assertStringContainsString('Method not found', $errorJson);
+        
+        $this->assertTrue(true, 'JSON serialization/deserialization working correctly');
+    }
+
+    public function testMcpSessionIdManagement(): void
+    {
+        // Test session ID management in McpChannel
+        $channel = new McpChannel('http://localhost:3001/mcp', RpcMessage::initializeRequest());
+        
+        // Initially no session ID
+        $this->assertNull($channel->getSessionId());
+        
+        // Set a session ID
+        $testSessionId = 'test-session-123';
+        $channel->setSessionId($testSessionId);
+        $this->assertEquals($testSessionId, $channel->getSessionId());
+        
+        // Clear session ID
+        $channel->setSessionId(null);
+        $this->assertNull($channel->getSessionId());
+        
+        $this->assertTrue(true, 'Session ID management working correctly');
+    }
+
+    public function testMcpMessageTypes(): void
+    {
+        // Test different message type detection
+        
+        // Request message
+        $request = RpcMessage::request('test/method');
+        $this->assertTrue($request->isRequest());
+        $this->assertFalse($request->isNotification());
+        $this->assertFalse($request->isResponse());
+        $this->assertFalse($request->isError());
+        
+        // Notification message
+        $notification = RpcMessage::notification('test/notification');
+        $this->assertFalse($notification->isRequest());
+        $this->assertTrue($notification->isNotification());
+        $this->assertFalse($notification->isResponse());
+        $this->assertFalse($notification->isError());
+        
+        // Response message
+        $response = RpcMessage::response(['result' => 'success'], 'test-id');
+        $this->assertFalse($response->isRequest());
+        $this->assertFalse($response->isNotification());
+        $this->assertTrue($response->isResponse());
+        $this->assertFalse($response->isError());
+        
+        // Error message
+        $error = RpcMessage::error(-32601, 'Method not found', null, 'test-id');
+        $this->assertFalse($error->isRequest());
+        $this->assertFalse($error->isNotification());
+        $this->assertFalse($error->isResponse());
+        $this->assertTrue($error->isError());
+        
+        $this->assertTrue(true, 'Message type detection working correctly');
     }
 }
 
