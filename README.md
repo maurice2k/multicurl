@@ -289,6 +289,7 @@ make test-8.3
 
 # Run all tests with PHP 8.4 (default)
 make test-8.4
+
 # or simply
 make test
 ```

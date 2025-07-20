@@ -95,7 +95,7 @@ class RpcMessage
      * @param array<string, mixed>|null $capabilities
      */
     public static function initializeRequest(
-        string $protocolVersion = '2025-03-26',
+        string $protocolVersion = '2025-06-18',
         ?array $clientInfo = null,
         ?array $capabilities = null,
         mixed $id = null
@@ -142,6 +142,7 @@ class RpcMessage
             'prompts' => ['listChanged'], 
             'resources' => ['subscribe', 'listChanged'],
             'tools' => ['listChanged'],
+            'elicitation' => ['request', 'listChanged'],
         ];
 
         $processed = $capabilities;
@@ -184,12 +185,87 @@ class RpcMessage
     {
         return self::request('tools/list', null, $id);
     }
+
+    /**
+     * Create a new tools/call request message with tool output schema support
+     *
+     * @param string $toolName Name of the tool to call
+     * @param array<string, mixed>|null $arguments Arguments for the tool
+     * @param array<string, mixed>|null $outputSchema Expected output schema
+     * @param mixed $id Request ID
+     */
+    public static function toolsCallRequest(
+        string $toolName,
+        ?array $arguments = null,
+        ?array $outputSchema = null,
+        mixed $id = null
+    ): self {
+        $params = [
+            'name' => $toolName,
+            'arguments' => $arguments ?? new \stdClass()
+        ];
+
+        if ($outputSchema !== null) {
+            $params['outputSchema'] = $outputSchema;
+        }
+
+        return self::request('tools/call', $params, $id);
+    }
     /**
      * Create a new prompts/list request message
      */
     public static function promptsListRequest(mixed $id = null): self
     {
         return self::request('prompts/list', null, $id);
+    }
+
+    /**
+     * Create a new prompts/get request message
+     *
+     * @param string $name Name of the prompt to get
+     * @param array<string, mixed>|null $arguments Arguments for the prompt
+     * @param mixed $id Request ID
+     */
+    public static function promptsGetRequest(
+        string $name,
+        ?array $arguments = null,
+        mixed $id = null
+    ): self {
+        $params = [
+            'name' => $name,
+            'arguments' => $arguments ?? new \stdClass()
+        ];
+
+        return self::request('prompts/get', $params, $id);
+    }
+
+    /**
+     * Create a new elicitation/request request message
+     *
+     * @param array<string, mixed>|null $context Context for elicitation
+     * @param array<string, mixed>|null $schema Schema describing the expected response structure
+     * @param mixed $id Request ID
+     */
+    public static function elicitationRequest(
+        ?array $context = null,
+        ?array $schema = null,
+        mixed $id = null
+    ): self {
+        $params = [];
+        
+        if ($context !== null) {
+            $params['context'] = $context;
+        }
+        
+        if ($schema !== null) {
+            $params['schema'] = $schema;
+        }
+
+        if (empty($params)) {
+            $params = new \stdClass();
+        }
+
+        return self::request('elicitation/request', $params, $id);
     }
 
     /**

@@ -212,7 +212,7 @@ class McpChannelTest extends TestCase
     {
         // Test basic MCP channel creation and configuration
         $initMessage = RpcMessage::initializeRequest(
-            protocolVersion: '2025-03-26',
+            protocolVersion: '2025-06-18',
             clientInfo: [
                 'name' => 'multicurl-test-client',
                 'version' => '1.0.0'
@@ -361,6 +361,113 @@ class McpChannelTest extends TestCase
         $this->assertTrue($error->isError());
         
         $this->assertTrue(true, 'Message type detection working correctly');
+    }
+
+    public function testToolOutputSchemas(): void
+    {
+        // Test creating tools/call request with output schema
+        $outputSchema = [
+            'type' => 'object',
+            'properties' => [
+                'result' => ['type' => 'string'],
+                'status' => ['type' => 'integer']
+            ],
+            'required' => ['result', 'status']
+        ];
+
+        $toolCallMessage = RpcMessage::toolsCallRequest(
+            'test_tool',
+            ['param1' => 'value1'],
+            $outputSchema
+        );
+
+        $this->assertInstanceOf(RpcMessage::class, $toolCallMessage);
+        $this->assertEquals('tools/call', $toolCallMessage->getMethod());
+        $this->assertTrue($toolCallMessage->isRequest());
+        
+        $params = $toolCallMessage->getParams();
+        $this->assertArrayHasKey('name', $params);
+        $this->assertArrayHasKey('arguments', $params);
+        $this->assertArrayHasKey('outputSchema', $params);
+        $this->assertEquals('test_tool', $params['name']);
+        $this->assertEquals($outputSchema, $params['outputSchema']);
+
+        $this->assertTrue(true, 'Tool Output Schemas support working correctly');
+    }
+
+    public function testElicitationSupport(): void
+    {
+        // Test creating elicitation request
+        $context = [
+            'user_id' => 'test123',
+            'session' => 'active'
+        ];
+        
+        $schema = [
+            'type' => 'object',
+            'properties' => [
+                'preference' => ['type' => 'string'],
+                'priority' => ['type' => 'integer']
+            ]
+        ];
+
+        $elicitationMessage = RpcMessage::elicitationRequest($context, $schema);
+
+        $this->assertInstanceOf(RpcMessage::class, $elicitationMessage);
+        $this->assertEquals('elicitation/request', $elicitationMessage->getMethod());
+        $this->assertTrue($elicitationMessage->isRequest());
+        
+        $params = $elicitationMessage->getParams();
+        $this->assertArrayHasKey('context', $params);
+        $this->assertArrayHasKey('schema', $params);
+        $this->assertEquals($context, $params['context']);
+        $this->assertEquals($schema, $params['schema']);
+
+        $this->assertTrue(true, 'Elicitation support working correctly');
+    }
+
+    public function testOAuth2Security(): void
+    {
+        // Test OAuth 2.1 token and Resource Indicators
+        $channel = new McpChannel('http://localhost:3001/mcp', RpcMessage::initializeRequest());
+        
+        $testToken = 'test-oauth-token-123';
+        $resourceIndicator = 'https://api.example.com/mcp';
+        
+        // Test setting OAuth token with resource indicator
+        $channel->setOAuthToken($testToken, $resourceIndicator);
+        
+        // Use reflection to check headers
+        $reflectionClass = new \ReflectionClass(\Maurice\Multicurl\HttpChannel::class);
+        $headersProperty = $reflectionClass->getProperty('headers');
+        $headersProperty->setAccessible(true);
+        $headers = $headersProperty->getValue($channel);
+        
+        $this->assertArrayHasKey('authorization', $headers);
+        $this->assertArrayHasKey('resource-indicator', $headers);
+        $this->assertEquals("authorization: Bearer {$testToken}", $headers['authorization']);
+        $this->assertEquals("resource-indicator: {$resourceIndicator}", $headers['resource-indicator']);
+        
+        // Test setting resource indicator separately
+        $newResourceIndicator = 'https://api2.example.com/mcp';
+        $channel->setResourceIndicator($newResourceIndicator);
+        
+        $headers = $headersProperty->getValue($channel);
+        $this->assertEquals("resource-indicator: {$newResourceIndicator}", $headers['resource-indicator']);
+
+        $this->assertTrue(true, 'OAuth 2.1 security features working correctly');
+    }
+
+    public function testUpdatedProtocolVersion(): void
+    {
+        // Test that the default protocol version is updated
+        $initMessage = RpcMessage::initializeRequest();
+        
+        $params = $initMessage->getParams();
+        $this->assertArrayHasKey('protocolVersion', $params);
+        $this->assertEquals('2025-06-18', $params['protocolVersion']);
+
+        $this->assertTrue(true, 'Protocol version updated to 2025-06-18');
     }
 }
 

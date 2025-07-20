@@ -33,7 +33,7 @@ class McpIntegrationTest extends TestCase
 
         // Create initialize request
         $initMessage = RpcMessage::initializeRequest(
-            protocolVersion: '2025-03-26',
+            protocolVersion: '2025-06-18',
             clientInfo: [
                 'name' => 'multicurl-test-client',
                 'version' => '1.0.0'

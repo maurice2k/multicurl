@@ -217,6 +217,31 @@ class McpChannel extends HttpChannel
     }
 
     /**
+     * Set OAuth 2.1 Bearer token with Resource Indicators support
+     * 
+     * @param string $token The access token
+     * @param string|null $resourceIndicator Optional resource indicator (RFC 8707)
+     */
+    public function setOAuthToken(string $token, ?string $resourceIndicator = null): void
+    {
+        $this->setBearerAuth($token);
+        
+        if ($resourceIndicator !== null) {
+            $this->setHeader('Resource-Indicator', $resourceIndicator);
+        }
+    }
+
+    /**
+     * Set Resource Indicator header for OAuth 2.1 compliance
+     * 
+     * @param string $resourceIndicator The resource indicator URI
+     */
+    public function setResourceIndicator(string $resourceIndicator): void
+    {
+        $this->setHeader('Resource-Indicator', $resourceIndicator);
+    }
+
+    /**
      * Enable stream resumption using the last received event ID
      */
     public function enableStreamResumption(): void
@@ -372,7 +397,7 @@ class McpChannel extends HttpChannel
         // Create the initialization channel that will be executed first
         $this->initializeChannel = clone $this;
         $this->initializeChannel->setRpcMessage(RpcMessage::initializeRequest(
-            '2025-03-26',
+            '2025-06-18',
             $clientInfo,
             $capabilities
         ));
