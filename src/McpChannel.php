@@ -389,10 +389,12 @@ class McpChannel extends HttpChannel
      * 
      * @param array<string, mixed>|null $clientInfo Optional client info to use in initialization
      * @param array<string, mixed>|null $capabilities Optional capabilities to use in initialization
+     * @param \Closure(?string): void|null $onInitializedCallback Optional callback called upon successful initialization with session ID
      */
     public function setAutomaticInitialize(
         ?array $clientInfo = null,
-        ?array $capabilities = null
+        ?array $capabilities = null,
+        ?\Closure $onInitializedCallback = null
     ): void {
         // Create the initialization channel that will be executed first
         $this->initializeChannel = clone $this;
@@ -405,7 +407,7 @@ class McpChannel extends HttpChannel
         // Set up the initialization callback
         $mainChannel = $this; // Reference to the main channel to set session ID
 
-        $this->initializeChannel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel, Manager $manager) use ($mainChannel) {
+        $this->initializeChannel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel, Manager $manager) use ($mainChannel, $onInitializedCallback) {
             if ($message->isError()) {
                 // Propagate error to caller via exception
                 throw new \RuntimeException('MCP initialization error: ' . 
@@ -415,9 +417,15 @@ class McpChannel extends HttpChannel
 
             if ($message->isResponse() && $message->getId() == $channel->getRpcMessage()->getId()) {
                 if ($message->getResult()) {
+                    $result = $message->getResult();
 
                     // update the main channel's session ID
                     $mainChannel->setSessionId($channel->getSessionId());
+
+                    // Call the initialization callback with session ID if provided
+                    if ($onInitializedCallback !== null) {
+                        $onInitializedCallback($channel->getSessionId());
+                    }
 
                     $initializedNotificationChannel = clone($channel);
                     $initializedNotificationChannel->setRpcMessage(RpcMessage::notification('notifications/initialized'));

@@ -382,4 +382,69 @@ class McpIntegrationTest extends TestCase
         // Some servers may not use session IDs, so we just verify no errors occurred
         $this->assertTrue(true, 'Session ID integration test completed without unexpected errors');
     }
+
+    public function testOnInitializedCallbackIntegration(): void
+    {
+        $manager = new Manager();
+        $callbackCalled = false;
+        $receivedSessionId = null;
+        $errorMessage = null;
+
+        // Create a simple tools/list request
+        $toolsMessage = RpcMessage::toolsListRequest();
+        $channel = new McpChannel($this->mcpBaseUrl, $toolsMessage);
+        $channel->setShowCurlCommand($this->showCurlCommand);
+        $channel->setTimeout(1000);
+
+        // Set up automatic initialization with callback
+        $channel->setAutomaticInitialize(
+            clientInfo: [
+                'name' => 'multicurl-test-client',
+                'version' => '1.0.0'
+            ],
+            capabilities: [
+                'roots' => ['listChanged' => true],
+                'sampling' => []
+            ],
+            onInitializedCallback: function (?string $sessionId) use (&$callbackCalled, &$receivedSessionId) {
+                $callbackCalled = true;
+                $receivedSessionId = $sessionId;
+            }
+        );
+
+        $channel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel, Manager $manager): bool {
+            // We don't need to process the actual response, just verify the callback was called
+            return true;
+        });
+
+        $channel->setOnErrorCallback(function ($channel, $message, $errno, $info) use (&$errorMessage) {
+            $errorMessage = "Error: $message (code: $errno)";
+        });
+
+        $channel->setOnTimeoutCallback(function ($channel, $timeoutType, $elapsedMS, $info) use (&$errorMessage) {
+            $errorMessage = ($timeoutType == Channel::TIMEOUT_CONNECTION ? 'Connection' : 'Total') . " timeout ($elapsedMS ms)";
+        });
+
+        $manager->addChannel($channel);
+        $manager->run(); // ACTUAL INTEGRATION TEST
+
+        // For stdio-based MCP servers, we might get connection errors, so we'll be more lenient
+        if ($errorMessage && !str_contains($errorMessage, 'Server returned nothing')) {
+            $this->fail("Unexpected error during initialization: $errorMessage");
+        }
+
+        // Verify the callback was called
+        $this->assertTrue($callbackCalled, 'onInitializedCallback should have been called during initialization');
+        
+        // Session ID could be null for some servers, but callback should still be called
+        $this->assertTrue(
+            $receivedSessionId === null || is_string($receivedSessionId),
+            'Received session ID should be null or a string, got: ' . gettype($receivedSessionId)
+        );
+        
+        if ($receivedSessionId !== null) {
+            $this->assertIsString($receivedSessionId, 'Session ID should be a string when provided');
+            $this->assertNotEmpty($receivedSessionId, 'Session ID should not be empty when provided');
+        }
+    }
 } 

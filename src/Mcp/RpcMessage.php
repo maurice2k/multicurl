@@ -72,6 +72,13 @@ class RpcMessage
     protected mixed $id = null;
 
     /**
+     * Metadata for the message
+     * 
+     * @var array<string, mixed>|null
+     */
+    protected ?array $_meta = null;
+
+    /**
      * Constants for message types
      */
     public const TYPE_REQUEST = 'request';
@@ -381,6 +388,11 @@ class RpcMessage
             $message->id = $data['id'] ?? null;
         }
 
+        // Handle metadata if present
+        if (isset($data['_meta']) && is_array($data['_meta'])) {
+            $message->_meta = $data['_meta'];
+        }
+
         return $message;
     }
 
@@ -415,6 +427,11 @@ class RpcMessage
             if ($this->id !== null) {
                 $result['id'] = $this->id;
             }
+        }
+
+        // Include metadata if present
+        if ($this->_meta !== null) {
+            $result['_meta'] = $this->_meta;
         }
 
         return $result;
@@ -522,5 +539,34 @@ class RpcMessage
     public function getErrorCode(): int
     {
         return $this->error['code'] ?? 0;
+    }
+
+    /**
+     * Set a specific metadata field
+     * 
+     * @param string $field The metadata field name
+     * @param mixed $value The value to set
+     */
+    public function setMeta(string $field, mixed $value): void
+    {
+        if ($this->_meta === null) {
+            $this->_meta = [];
+        }
+        $this->_meta[$field] = $value;
+    }
+
+    /**
+     * Get metadata field or full metadata structure
+     * 
+     * @param string|null $field The specific field to get, or null for all metadata
+     * @return mixed The field value, full metadata array, or null if not found
+     */
+    public function getMeta(?string $field = null): mixed
+    {
+        if ($field === null) {
+            return $this->_meta;
+        }
+        
+        return $this->_meta[$field] ?? null;
     }
 } 
