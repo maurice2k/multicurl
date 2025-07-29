@@ -61,7 +61,7 @@ class RpcMessage
 
     /**
      * Error for error responses
-     * 
+     *
      * @var array<string, mixed>|null
      */
     protected ?array $error = null;
@@ -73,7 +73,7 @@ class RpcMessage
 
     /**
      * Metadata for the message
-     * 
+     *
      * @var array<string, mixed>|null
      */
     protected ?array $_meta = null;
@@ -89,7 +89,7 @@ class RpcMessage
     /**
      * Generate a unique message ID
      */
-    protected static function getNextId(): string 
+    protected static function getNextId(): string
     {
         static $counter = 0;
         return (string)++$counter;
@@ -110,7 +110,7 @@ class RpcMessage
 
         // Process capabilities to ensure object properties are objects, not arrays
         $processedCapabilities = self::processCapabilities($capabilities);
-        
+
         $params = [
             'protocolVersion' => $protocolVersion,
             'capabilities' => $processedCapabilities,
@@ -125,7 +125,7 @@ class RpcMessage
 
     /**
      * Process capabilities to ensure object properties are objects when empty
-     * 
+     *
      * @param array<string, mixed>|null $capabilities
      * @return array<string, mixed>|\stdClass
      */
@@ -139,14 +139,14 @@ class RpcMessage
         $objectProperties = [
             'experimental',  // { [key: string]: object }
             'sampling',      // object
-            'logging',       // object  
+            'logging',       // object
             'completions',   // object
         ];
 
         // Properties that are objects with sub-properties
         $structuredProperties = [
             'roots' => ['listChanged'],
-            'prompts' => ['listChanged'], 
+            'prompts' => ['listChanged'],
             'resources' => ['subscribe', 'listChanged'],
             'tools' => ['listChanged'],
             'elicitation' => ['request', 'listChanged'],
@@ -259,11 +259,11 @@ class RpcMessage
         mixed $id = null
     ): self {
         $params = [];
-        
+
         if ($context !== null) {
             $params['context'] = $context;
         }
-        
+
         if ($schema !== null) {
             $params['schema'] = $schema;
         }
@@ -355,7 +355,7 @@ class RpcMessage
 
     /**
      * Parse array into RpcMessage
-     * 
+     *
      * @param array<string, mixed> $data
      */
     public static function fromArray(array $data): self
@@ -398,7 +398,7 @@ class RpcMessage
 
     /**
      * Convert to array for JSON encoding
-     * 
+     *
      * @return array<string, mixed>
      */
     public function toArray(): array
@@ -483,7 +483,7 @@ class RpcMessage
 
     /**
      * Get error
-     * 
+     *
      * @return array<string, mixed>|null
      */
     public function getError(): ?array
@@ -523,6 +523,11 @@ class RpcMessage
         return $this->type === self::TYPE_RESPONSE;
     }
 
+    public function isResponseFor(RpcMessage $rpcMessage): bool
+    {
+        return $this->isResponse() && (string)$this->getId() === (string)$rpcMessage->getId();
+    }
+
     /**
      * Check if message is an error
      */
@@ -543,7 +548,7 @@ class RpcMessage
 
     /**
      * Set a specific metadata field
-     * 
+     *
      * @param string $field The metadata field name
      * @param mixed $value The value to set
      */
@@ -557,7 +562,7 @@ class RpcMessage
 
     /**
      * Get metadata field or full metadata structure
-     * 
+     *
      * @param string|null $field The specific field to get, or null for all metadata
      * @return mixed The field value, full metadata array, or null if not found
      */
@@ -566,7 +571,7 @@ class RpcMessage
         if ($field === null) {
             return $this->_meta;
         }
-        
+
         return $this->_meta[$field] ?? null;
     }
-} 
+}

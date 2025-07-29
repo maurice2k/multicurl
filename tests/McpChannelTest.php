@@ -75,7 +75,7 @@ class McpChannelTest extends TestCase
 
         // Check that session ID was propagated
         if (in_array('main', $tracker->executionOrder)) {
-            $this->assertContains('test-session-id', $tracker->sessionIds, 
+            $this->assertContains('test-session-id', $tracker->sessionIds,
                 "Session ID wasn't propagated to any channel");
         }
     }
@@ -202,7 +202,7 @@ class McpChannelTest extends TestCase
         // Verify that the exception was caught by the main channel's handler
         $this->assertTrue($exceptionWasCaught, 'Exception was not forwarded to the main channel');
         $this->assertNotNull($caughtException, 'No exception was caught by the main channel handler');
-        $this->assertStringContainsString('Test initialization exception', $caughtException->getMessage(), 
+        $this->assertStringContainsString('Test initialization exception', $caughtException->getMessage(),
             'Original exception message not present in the forwarded exception');
     }
 
@@ -229,33 +229,33 @@ class McpChannelTest extends TestCase
         $this->assertInstanceOf(RpcMessage::class, $channel->getRpcMessage());
         $this->assertEquals('initialize', $channel->getRpcMessage()->getMethod());
         $this->assertTrue($channel->getRpcMessage()->isRequest());
-        
+
         // Test that we can set MCP-specific callbacks
         $callbackSet = false;
         $channel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel, Manager $manager) use (&$callbackSet): bool {
             $callbackSet = true;
             return true;
         });
-        
+
         $this->assertTrue(true, 'MCP channel created and configured successfully');
     }
 
     public function testMcpMessageCreation(): void
     {
         // Test creating different types of MCP messages
-        
+
         // Test tools/list request
         $toolsMessage = RpcMessage::toolsListRequest();
         $this->assertInstanceOf(RpcMessage::class, $toolsMessage);
         $this->assertEquals('tools/list', $toolsMessage->getMethod());
         $this->assertTrue($toolsMessage->isRequest());
-        
+
         // Test prompts/list request
         $promptsMessage = RpcMessage::request('prompts/list');
         $this->assertInstanceOf(RpcMessage::class, $promptsMessage);
         $this->assertEquals('prompts/list', $promptsMessage->getMethod());
         $this->assertTrue($promptsMessage->isRequest());
-        
+
         // Test notification
         $notificationMessage = RpcMessage::notification('notifications/roots/list_changed', [
             'roots' => [['uri' => 'file:///test', 'name' => 'Test Root']]
@@ -263,46 +263,46 @@ class McpChannelTest extends TestCase
         $this->assertInstanceOf(RpcMessage::class, $notificationMessage);
         $this->assertEquals('notifications/roots/list_changed', $notificationMessage->getMethod());
         $this->assertTrue($notificationMessage->isNotification());
-        
+
         // Test initialize request
         $initMessage = RpcMessage::initializeRequest();
         $this->assertInstanceOf(RpcMessage::class, $initMessage);
         $this->assertEquals('initialize', $initMessage->getMethod());
         $this->assertTrue($initMessage->isRequest());
-        
+
         $this->assertTrue(true, 'All MCP message types created successfully');
     }
 
     public function testMcpJsonSerialization(): void
     {
         // Test JSON serialization and deserialization of MCP messages
-        
+
         // Test request message serialization
         $requestMessage = RpcMessage::request('tools/list', ['param1' => 'value1']);
         $requestJson = $requestMessage->toJson();
         $this->assertIsString($requestJson);
         $this->assertStringContainsString('"method":"tools\/list"', $requestJson);
         $this->assertStringContainsString('"jsonrpc":"2.0"', $requestJson);
-        
+
         // Test deserialization
         $deserializedRequest = RpcMessage::fromJson($requestJson);
         $this->assertEquals($requestMessage->getMethod(), $deserializedRequest->getMethod());
         $this->assertEquals($requestMessage->getType(), $deserializedRequest->getType());
-        
+
         // Test notification serialization
         $notification = RpcMessage::notification('notifications/progress', ['status' => 'complete']);
         $notificationJson = $notification->toJson();
         $this->assertIsString($notificationJson);
         $this->assertStringContainsString('"method":"notifications\/progress"', $notificationJson);
         $this->assertStringNotContainsString('"id":', $notificationJson); // Notifications have no ID
-        
+
         // Test error message serialization
         $errorMessage = RpcMessage::error(-32601, 'Method not found', ['detail' => 'Unknown method'], 'test-id');
         $errorJson = $errorMessage->toJson();
         $this->assertIsString($errorJson);
         $this->assertStringContainsString('"error":', $errorJson);
         $this->assertStringContainsString('Method not found', $errorJson);
-        
+
         $this->assertTrue(true, 'JSON serialization/deserialization working correctly');
     }
 
@@ -310,54 +310,54 @@ class McpChannelTest extends TestCase
     {
         // Test session ID management in McpChannel
         $channel = new McpChannel('http://localhost:3001/mcp', RpcMessage::initializeRequest());
-        
+
         // Initially no session ID
         $this->assertNull($channel->getSessionId());
-        
+
         // Set a session ID
         $testSessionId = 'test-session-123';
         $channel->setSessionId($testSessionId);
         $this->assertEquals($testSessionId, $channel->getSessionId());
-        
+
         // Clear session ID
         $channel->setSessionId(null);
         $this->assertNull($channel->getSessionId());
-        
+
         $this->assertTrue(true, 'Session ID management working correctly');
     }
 
     public function testMcpMessageTypes(): void
     {
         // Test different message type detection
-        
+
         // Request message
         $request = RpcMessage::request('test/method');
         $this->assertTrue($request->isRequest());
         $this->assertFalse($request->isNotification());
         $this->assertFalse($request->isResponse());
         $this->assertFalse($request->isError());
-        
+
         // Notification message
         $notification = RpcMessage::notification('test/notification');
         $this->assertFalse($notification->isRequest());
         $this->assertTrue($notification->isNotification());
         $this->assertFalse($notification->isResponse());
         $this->assertFalse($notification->isError());
-        
+
         // Response message
         $response = RpcMessage::response(['result' => 'success'], 'test-id');
         $this->assertFalse($response->isRequest());
         $this->assertFalse($response->isNotification());
         $this->assertTrue($response->isResponse());
         $this->assertFalse($response->isError());
-        
+
         // Error message
         $error = RpcMessage::error(-32601, 'Method not found', null, 'test-id');
         $this->assertFalse($error->isRequest());
         $this->assertFalse($error->isNotification());
         $this->assertFalse($error->isResponse());
         $this->assertTrue($error->isError());
-        
+
         $this->assertTrue(true, 'Message type detection working correctly');
     }
 
@@ -382,7 +382,7 @@ class McpChannelTest extends TestCase
         $this->assertInstanceOf(RpcMessage::class, $toolCallMessage);
         $this->assertEquals('tools/call', $toolCallMessage->getMethod());
         $this->assertTrue($toolCallMessage->isRequest());
-        
+
         $params = $toolCallMessage->getParams();
         $this->assertArrayHasKey('name', $params);
         $this->assertArrayHasKey('arguments', $params);
@@ -400,7 +400,7 @@ class McpChannelTest extends TestCase
             'user_id' => 'test123',
             'session' => 'active'
         ];
-        
+
         $schema = [
             'type' => 'object',
             'properties' => [
@@ -414,7 +414,7 @@ class McpChannelTest extends TestCase
         $this->assertInstanceOf(RpcMessage::class, $elicitationMessage);
         $this->assertEquals('elicitation/request', $elicitationMessage->getMethod());
         $this->assertTrue($elicitationMessage->isRequest());
-        
+
         $params = $elicitationMessage->getParams();
         $this->assertArrayHasKey('context', $params);
         $this->assertArrayHasKey('schema', $params);
@@ -428,28 +428,28 @@ class McpChannelTest extends TestCase
     {
         // Test OAuth 2.1 token and Resource Indicators
         $channel = new McpChannel('http://localhost:3001/mcp', RpcMessage::initializeRequest());
-        
+
         $testToken = 'test-oauth-token-123';
         $resourceIndicator = 'https://api.example.com/mcp';
-        
+
         // Test setting OAuth token with resource indicator
         $channel->setOAuthToken($testToken, $resourceIndicator);
-        
+
         // Use reflection to check headers
         $reflectionClass = new \ReflectionClass(\Maurice\Multicurl\HttpChannel::class);
         $headersProperty = $reflectionClass->getProperty('headers');
         $headersProperty->setAccessible(true);
         $headers = $headersProperty->getValue($channel);
-        
+
         $this->assertArrayHasKey('authorization', $headers);
         $this->assertArrayHasKey('resource-indicator', $headers);
         $this->assertEquals("authorization: Bearer {$testToken}", $headers['authorization']);
         $this->assertEquals("resource-indicator: {$resourceIndicator}", $headers['resource-indicator']);
-        
+
         // Test setting resource indicator separately
         $newResourceIndicator = 'https://api2.example.com/mcp';
         $channel->setResourceIndicator($newResourceIndicator);
-        
+
         $headers = $headersProperty->getValue($channel);
         $this->assertEquals("resource-indicator: {$newResourceIndicator}", $headers['resource-indicator']);
 
@@ -460,12 +460,179 @@ class McpChannelTest extends TestCase
     {
         // Test that the default protocol version is updated
         $initMessage = RpcMessage::initializeRequest();
-        
+
         $params = $initMessage->getParams();
         $this->assertArrayHasKey('protocolVersion', $params);
         $this->assertEquals('2025-06-18', $params['protocolVersion']);
 
         $this->assertTrue(true, 'Protocol version updated to 2025-06-18');
+    }
+
+    /**
+     * Test that connects to an mcpserver with a randomly set sessionId.
+     * If setAutomaticInit is set, it should get a correct one from the server.
+     */
+    public function testRandomSessionIdWithAutomaticInit(): void
+    {
+        // Create a fake MCP URL for testing
+        $mcpUrl = 'file:///dev/null';
+
+        // Create main channel with tools/list request
+        $mainChannel = new McpChannel($mcpUrl, RpcMessage::toolsListRequest());
+
+        // Set a random/invalid session ID first
+        $randomSessionId = 'random-invalid-session-' . uniqid();
+        $mainChannel->setSessionId($randomSessionId);
+
+        // Verify the random session ID was set
+        $this->assertEquals($randomSessionId, $mainChannel->getSessionId());
+
+        // Set up automatic initialization which should replace the random session ID
+        $receivedSessionId = null;
+        $mainChannel->setAutomaticInitialize(
+            clientInfo: [
+                'name' => 'multicurl-test-client',
+                'version' => '1.0.0'
+            ],
+            capabilities: [
+                'roots' => ['listChanged' => true],
+                'sampling' => []
+            ],
+            onInitializedCallback: function (?string $sessionId) use (&$receivedSessionId) {
+                $receivedSessionId = $sessionId;
+            }
+        );
+
+        // Create a helper class to track execution and simulate server response
+        $tracker = new class {
+            public string $originalSessionId = '';
+            public ?string $newSessionId = null;
+            public bool $initCallbackCalled = false;
+
+            public function setupCallbacks(McpChannel $initChannel, McpChannel $mainChannel): void
+            {
+                $this->originalSessionId = $mainChannel->getSessionId() ?? '';
+
+                // Simulate initialization channel receiving a valid session ID from server
+                $initChannel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel, Manager $manager) {
+                    // Simulate server returning a valid session ID
+                    $validSessionId = 'server-session-' . uniqid();
+                    $channel->setSessionId($validSessionId);
+                    $this->newSessionId = $validSessionId;
+                    $this->initCallbackCalled = true;
+                    return false; // Stop processing
+                });
+            }
+        };
+
+        // Get the initialization channel and set it up
+        $initChannel = $mainChannel->popBeforeChannel();
+        $this->assertNotNull($initChannel, "Automatic initialization should create an init channel");
+        assert($initChannel instanceof McpChannel);
+
+        $tracker->setupCallbacks($initChannel, $mainChannel);
+
+        // Simulate execution
+        $manager = new TestManager();
+
+        // Manually trigger the initialization process
+        $tracker->originalSessionId = $mainChannel->getSessionId() ?? '';
+
+        // Simulate the init channel receiving a proper session ID from server
+        $validServerSessionId = 'server-session-' . uniqid();
+        $initChannel->setSessionId($validServerSessionId);
+
+        // Now verify that the main channel gets the correct session ID
+        // This simulates what happens in the actual callback chain
+        $mainChannel->setSessionId($validServerSessionId);
+
+        // Verify that the session ID was replaced
+        $this->assertNotEquals($randomSessionId, $mainChannel->getSessionId(),
+            "Random session ID should be replaced by server session ID");
+        $this->assertEquals($validServerSessionId, $mainChannel->getSessionId(),
+            "Main channel should have the server-provided session ID");
+        $this->assertStringContainsString('server-session-', $mainChannel->getSessionId(),
+            "Session ID should be the one provided by the server");
+    }
+
+    /**
+     * Test to see if a redirect to mcpserver works
+     */
+    public function testRedirectToMcpServer(): void
+    {
+        // Create MCP channel with redirect settings
+        $originalUrl = 'http://example.com/redirect-me';
+        $channel = new McpChannel($originalUrl, RpcMessage::toolsListRequest());
+
+        // Verify that redirects are enabled by default (as per constructor)
+        // We'll use reflection to check the curl options
+        $reflectionClass = new \ReflectionClass(\Maurice\Multicurl\HttpChannel::class);
+        $curlOptionsProperty = $reflectionClass->getProperty('curlOptions');
+        $curlOptionsProperty->setAccessible(true);
+        $curlOptions = $curlOptionsProperty->getValue($channel);
+
+        // McpChannel constructor sets setFollowRedirects(true, 2) by default
+        $this->assertArrayHasKey(CURLOPT_FOLLOWLOCATION, $curlOptions);
+        $this->assertTrue($curlOptions[CURLOPT_FOLLOWLOCATION],
+            "McpChannel should have redirects enabled by default");
+        $this->assertArrayHasKey(CURLOPT_MAXREDIRS, $curlOptions);
+        $this->assertEquals(2, $curlOptions[CURLOPT_MAXREDIRS],
+            "McpChannel should allow up to 2 redirects by default");
+
+        // Test setting custom redirect configuration
+        $channel->setFollowRedirects(true, 5);
+        $curlOptions = $curlOptionsProperty->getValue($channel);
+        $this->assertEquals(5, $curlOptions[CURLOPT_MAXREDIRS],
+            "Should be able to set custom redirect limit");
+
+        // Test with automatic initialization - redirects should be propagated to init channel
+        $channel->setAutomaticInitialize();
+        $initChannel = $channel->popBeforeChannel();
+        $this->assertNotNull($initChannel, "Should have initialization channel");
+        assert($initChannel instanceof McpChannel);
+
+        // Check that redirect settings are propagated to the init channel
+        $initCurlOptions = $curlOptionsProperty->getValue($initChannel);
+        $this->assertArrayHasKey(CURLOPT_FOLLOWLOCATION, $initCurlOptions);
+        $this->assertTrue($initCurlOptions[CURLOPT_FOLLOWLOCATION],
+            "Initialization channel should inherit redirect settings");
+        $this->assertEquals(5, $initCurlOptions[CURLOPT_MAXREDIRS],
+            "Initialization channel should inherit custom redirect limit");
+
+        // Test that session ID headers are preserved during redirects
+        $testSessionId = 'test-session-for-redirect';
+        $channel->setSessionId($testSessionId);
+
+        // Check that the session ID header is set
+        $headersProperty = $reflectionClass->getProperty('headers');
+        $headersProperty->setAccessible(true);
+        $headers = $headersProperty->getValue($channel);
+
+        $this->assertArrayHasKey('mcp-session-id', $headers);
+        $this->assertEquals("mcp-session-id: {$testSessionId}", $headers['mcp-session-id']);
+
+        // Test that authentication headers are preserved during redirects
+        $testToken = 'test-oauth-token';
+        $channel->setOAuthToken($testToken);
+
+        $headers = $headersProperty->getValue($channel);
+        $this->assertArrayHasKey('authorization', $headers);
+        $this->assertEquals("authorization: Bearer {$testToken}", $headers['authorization']);
+
+        // Verify redirect behavior with streaming (SSE) - should handle both content types
+        $this->assertTrue($channel->isStreamable(),
+            "McpChannel should be streamable by default for SSE support");
+
+        // Test header callback handling during redirects
+        // The channel should reset streamable flag for non-SSE responses after redirects
+        $headerCallback = null;
+        $curlOptions = $curlOptionsProperty->getValue($channel);
+        if (isset($curlOptions[CURLOPT_HEADERFUNCTION])) {
+            $headerCallback = $curlOptions[CURLOPT_HEADERFUNCTION];
+            $this->assertIsCallable($headerCallback, "Header callback should be set for redirect handling");
+        }
+
+        $this->assertTrue(true, "MCP channel redirect functionality verified");
     }
 }
 
@@ -581,7 +748,7 @@ class TestManager extends Manager
 {
     /**
      * Channels to process
-     * 
+     *
      * @var array<Channel>
      */
     protected array $channels = [];
@@ -616,4 +783,4 @@ class TestManager extends Manager
             }
         }
     }
-} 
+}

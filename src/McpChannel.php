@@ -27,6 +27,8 @@ declare(strict_types = 1);
 
 namespace Maurice\Multicurl;
 
+use Maurice\Multicurl\Helper\Stream;
+use Maurice\Multicurl\Sse\SseEvent;
 use Maurice\Multicurl\Sse\SseTrait;
 use Maurice\Multicurl\Mcp\RpcMessage;
 
@@ -74,6 +76,16 @@ class McpChannel extends HttpChannel
     protected string $responseContentType = '';
 
     /**
+     * HTTP response status code
+     */
+    protected int $httpStatusCode = 0;
+
+    /**
+     * Internal error handling callback for automatic initialization
+     */
+    protected ?\Closure $internalErrorHandler = null;
+
+    /**
      * Constructor with setup for both SSE and regular JSON response handling
      *
      * @param string $url MCP endpoint URL
@@ -99,12 +111,25 @@ class McpChannel extends HttpChannel
     {
         // Set up header callback to detect response type early
         $this->setCurlOption(CURLOPT_HEADERFUNCTION, function(\CurlHandle $ch, string $headerLine) {
+
             $len = strlen($headerLine);
             $header = trim($headerLine);
 
+            // Extract HTTP status code from the first line
+            if (preg_match('/^HTTP\/[\d\.]+\s+(\d+)/', $header, $matches)) {
+                $this->httpStatusCode = (int)$matches[1];
+
+                // This is the beginning of the response, so we (re-)set the streamable flag to true,
+                // which is the default after calling setupSse() (which evenutally calls setStreamable(true)).
+                // The issue is that we set it to false once we detect a non-SSE response, but this might
+                // be a 30x redirect, so we need to set it to true again for the upcoming headers.
+                $this->responseContentType = '';
+                $this->setStreamable(true);
+            }
+
             if (empty($header)) { // end of headers
                 // Set up SSE processing only if we detected an event stream
-                if (stripos($this->responseContentType, 'text/event-stream') === false) {
+                if (stripos($this->responseContentType, 'text/event-stream') === false || $this->httpStatusCode >= 400) {
                     $this->setStreamable(false);
                 }
             }
@@ -124,13 +149,13 @@ class McpChannel extends HttpChannel
             return $len;
         });
 
-        $this->setCurlOption(CURLOPT_FAILONERROR, true);
+        //$this->setCurlOption(CURLOPT_FAILONERROR, true);
     }
 
     private function setupMessageCallbacks(): void
     {
         // Hook into SSE events to process MCP messages
-        $this->setOnEventCallback(function($event, $channel, $manager): ?bool {
+        $this->setOnEventCallback(function(SseEvent $event, McpChannel $channel, Manager $manager): ?bool {
             // SSE events with JSON-RPC data
             if ($event->data) {
                 $res = $this->processJsonMessage($event->data, $manager);
@@ -140,9 +165,14 @@ class McpChannel extends HttpChannel
         });
 
         // Hook into regular response handling
-        parent::setOnReadyCallback(function($channel, $info, $stream, $manager) {
-            // Only process JSON responses here (SSE is handled via onEventCallback)
+        parent::setOnReadyCallback(function(Channel $channel, array $info, Stream $stream, Manager $manager) {
+            if ($channel->getHttpStatusCode() >= 400) {
+                $this->onError('HTTP request failed: ' . $channel->getHttpStatusCode(), CURLE_HTTP_RETURNED_ERROR, $info, $manager);
+                return false;
+            }
+
             if (!$this->isStreamable() && $stream->getSize() > 0) {
+                // Only process normal JSON responses here (SSE is handled via onEventCallback)
                 $this->processJsonMessage($stream->peek(), $manager);
             }
         });
@@ -203,6 +233,14 @@ class McpChannel extends HttpChannel
     }
 
     /**
+     * Get the HTTP response status code
+     */
+    protected function getHttpStatusCode(): int
+    {
+        return $this->httpStatusCode;
+    }
+
+    /**
      * Set Last-Event-ID header for stream resumption
      */
     public function setLastEventIdHeader(?string $eventId): void
@@ -218,14 +256,14 @@ class McpChannel extends HttpChannel
 
     /**
      * Set OAuth 2.1 Bearer token with Resource Indicators support
-     * 
+     *
      * @param string $token The access token
      * @param string|null $resourceIndicator Optional resource indicator (RFC 8707)
      */
     public function setOAuthToken(string $token, ?string $resourceIndicator = null): void
     {
         $this->setBearerAuth($token);
-        
+
         if ($resourceIndicator !== null) {
             $this->setHeader('Resource-Indicator', $resourceIndicator);
         }
@@ -233,7 +271,7 @@ class McpChannel extends HttpChannel
 
     /**
      * Set Resource Indicator header for OAuth 2.1 compliance
-     * 
+     *
      * @param string $resourceIndicator The resource indicator URI
      */
     public function setResourceIndicator(string $resourceIndicator): void
@@ -305,7 +343,7 @@ class McpChannel extends HttpChannel
 
     /**
      * Process JSON data for MCP messages - handles both single messages and batches
-     * 
+     *
      * @param string $json JSON data to process
      * @param Manager $manager Manager instance for callback
      * @return bool|null Return value from the callback
@@ -380,13 +418,13 @@ class McpChannel extends HttpChannel
 
     /**
      * Sets up automatic initialization for MCP communication
-     * 
+     *
      * This creates a chain of channels for proper MCP initialization:
      * 1. Initialize request (RPC message "initialize")
      * 2. Initialized notification (RPC message "notifications/initialized")
-     * 
+     *
      * The session ID from initialization will be set to this channel.
-     * 
+     *
      * @param array<string, mixed>|null $clientInfo Optional client info to use in initialization
      * @param array<string, mixed>|null $capabilities Optional capabilities to use in initialization
      * @param \Closure(?string): void|null $onInitializedCallback Optional callback called upon successful initialization with session ID
@@ -396,7 +434,7 @@ class McpChannel extends HttpChannel
         ?array $capabilities = null,
         ?\Closure $onInitializedCallback = null
     ): void {
-        // Create the initialization channel that will be executed first
+        // Create the initialization channel that will be executed when needed
         $this->initializeChannel = clone $this;
         $this->initializeChannel->setRpcMessage(RpcMessage::initializeRequest(
             '2025-06-18',
@@ -410,8 +448,8 @@ class McpChannel extends HttpChannel
         $this->initializeChannel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel, Manager $manager) use ($mainChannel, $onInitializedCallback) {
             if ($message->isError()) {
                 // Propagate error to caller via exception
-                throw new \RuntimeException('MCP initialization error: ' . 
-                    ($message->getError()['message'] ?? 'Unknown error') . 
+                throw new \RuntimeException('MCP initialization error: ' .
+                    ($message->getError()['message'] ?? 'Unknown error') .
                     ' (Code: ' . ($message->getError()['code'] ?? 'unknown') . ')');
             }
 
@@ -461,7 +499,53 @@ class McpChannel extends HttpChannel
             $mainChannel->onTimeout($timeoutType, $elapsedMS, $manager);
         });
 
-        $this->setBeforeChannel($this->initializeChannel);
+        // If we already have a session ID, don't initialize immediately
+        // Instead, set up internal 404 handling to trigger initialization
+        if ($this->sessionId !== null) {
+                        // Set up internal error handler that will be called from onError
+            $this->internalErrorHandler = function (Channel $channel, string $error, int $code, array $info, Manager $manager) use ($mainChannel) {
+                // Check if this is a 404 error (HTTP status code was already extracted in header callback)
+
+                if ($mainChannel->httpStatusCode === 404 ||
+                    preg_match('/session.*?(not found|expired)|no valid session/i', $channel->getStream()->peek()))
+                {
+                    // Clear the session ID and trigger initialization
+                    $mainChannel->setSessionId(null);
+                    $mainChannel->setBeforeChannel($mainChannel->initializeChannel);
+
+                    // Re-add the channel to the manager to trigger the initialization flow
+                    $manager->addChannel($mainChannel);
+                    return true; // Indicate we handled the error
+                }
+                return false; // Let normal error handling continue
+            };
+        } else {
+            // No session ID, set up initialization to run before the main channel
+            $this->setBeforeChannel($this->initializeChannel);
+        }
+    }
+
+    public function onError(string $error, int $code, array $info, Manager $manager): void
+    {
+        // First, check our internal error handler
+        if ($this->internalErrorHandler !== null) {
+            $handled = ($this->internalErrorHandler)($this, $error, $code, $info, $manager);
+            if ($handled) {
+                return; // Error was handled, don't continue with normal error processing
+            }
+        }
+
+        // Continue with normal error processing
+        parent::onError($error, $code, $info, $manager);
+    }
+
+    public function onComplete(Manager $manager): void
+    {
+        parent::onComplete($manager);
+
+        // Clear the internal handler
+        $this->httpStatusCode = 0;
+        $this->internalErrorHandler = null;
     }
 
     public function __clone(): void
@@ -474,6 +558,8 @@ class McpChannel extends HttpChannel
 
         $this->initializeChannel = null;
         $this->responseContentType = '';
+        $this->httpStatusCode = 0;
+        $this->internalErrorHandler = null;
 
         $this->setupSse();
         $this->setupResponseHeaderCallback();
@@ -482,10 +568,10 @@ class McpChannel extends HttpChannel
 
     /**
      * Forward an exception to this channel's exception handler
-     * 
+     *
      * This is a public method that can be used to trigger the exception handler
      * from another channel, e.g. when forwarding exceptions from the initialize channel.
-     * 
+     *
      * @param \Exception $exception Exception to forward to this channel's handler
      * @param string $context Optional context information for the exception
      */

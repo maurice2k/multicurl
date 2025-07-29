@@ -397,6 +397,7 @@ class Manager
 
         curl_close($ch);
         $channel->setCurlHandle(null);
+        $channel->onComplete($this);
 
         $nextChannel = $channel->popNextChannel();
         if ($nextChannel !== null) {

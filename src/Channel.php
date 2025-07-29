@@ -309,6 +309,17 @@ class Channel
     }
 
     /**
+     * Called when the channel is complete
+     *
+     * Can be used to cleanup any resources associated with the channel
+     *
+     * @param Manager $manager The manager that removed the channel
+     */
+    public function onComplete(Manager $manager): void
+    {
+    }
+
+    /**
      * Returns the CurlHandle associated with this channel.
      */
     public function getCurlHandle(): ?\CurlHandle
@@ -400,7 +411,7 @@ class Channel
 
     /**
      * Sets a channel to be executed before this one is executed.
-     * 
+     *
      * @param Channel $channel The channel to execute before this one
      * @param bool $setThisAsNext Whether to automatically set this channel as the next channel of the before channel
      */
