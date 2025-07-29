@@ -503,47 +503,41 @@ class McpChannelTest extends TestCase
             }
         );
 
-        // Create a helper class to track execution and simulate server response
-        $tracker = new class {
-            public string $originalSessionId = '';
-            public ?string $newSessionId = null;
-            public bool $initCallbackCalled = false;
-
-            public function setupCallbacks(McpChannel $initChannel, McpChannel $mainChannel): void
-            {
-                $this->originalSessionId = $mainChannel->getSessionId() ?? '';
-
-                // Simulate initialization channel receiving a valid session ID from server
-                $initChannel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel, Manager $manager) {
-                    // Simulate server returning a valid session ID
-                    $validSessionId = 'server-session-' . uniqid();
-                    $channel->setSessionId($validSessionId);
-                    $this->newSessionId = $validSessionId;
-                    $this->initCallbackCalled = true;
-                    return false; // Stop processing
-                });
-            }
-        };
-
-        // Get the initialization channel and set it up
+        // When a session ID is already set, the init channel is not immediately created
+        // Instead, it's set up to trigger on error (like 404)
         $initChannel = $mainChannel->popBeforeChannel();
-        $this->assertNotNull($initChannel, "Automatic initialization should create an init channel");
-        assert($initChannel instanceof McpChannel);
+        $this->assertNull($initChannel, "When session ID is already set, init channel should not be immediately created");
 
-        $tracker->setupCallbacks($initChannel, $mainChannel);
+        // Test that we can access the initialization channel via reflection
+        $reflectionClass = new \ReflectionClass(McpChannel::class);
+        $initChannelProperty = $reflectionClass->getProperty('initializeChannel');
+        $initChannelProperty->setAccessible(true);
+        $storedInitChannel = $initChannelProperty->getValue($mainChannel);
 
-        // Simulate execution
-        $manager = new TestManager();
+        $this->assertNotNull($storedInitChannel, "Initialization channel should be stored internally");
+        $this->assertInstanceOf(McpChannel::class, $storedInitChannel);
 
-        // Manually trigger the initialization process
-        $tracker->originalSessionId = $mainChannel->getSessionId() ?? '';
+        // Verify that the stored init channel has the correct RPC message
+        $this->assertEquals('initialize', $storedInitChannel->getRpcMessage()->getMethod());
 
-        // Simulate the init channel receiving a proper session ID from server
+        // Test the error handling scenario that would trigger initialization
+        // Simulate clearing the session ID (as would happen on 404/session error)
+        $mainChannel->setSessionId(null);
+
+        // Now the beforeChannel should be set to the init channel
+        $mainChannel->setBeforeChannel($storedInitChannel);
+
+        // Verify we can now get the init channel
+        $beforeChannel = $mainChannel->popBeforeChannel();
+        $this->assertNotNull($beforeChannel, "After session ID is cleared, init channel should be available");
+        $this->assertInstanceOf(McpChannel::class, $beforeChannel);
+        $this->assertEquals('initialize', $beforeChannel->getRpcMessage()->getMethod());
+
+        // Simulate the complete flow: init -> session update
         $validServerSessionId = 'server-session-' . uniqid();
-        $initChannel->setSessionId($validServerSessionId);
+        $beforeChannel->setSessionId($validServerSessionId);
 
-        // Now verify that the main channel gets the correct session ID
-        // This simulates what happens in the actual callback chain
+        // This would normally happen in the callback chain
         $mainChannel->setSessionId($validServerSessionId);
 
         // Verify that the session ID was replaced
