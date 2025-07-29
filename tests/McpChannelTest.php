@@ -202,8 +202,6 @@ class McpChannelTest extends TestCase
         // Verify that the exception was caught by the main channel's handler
         $this->assertTrue($exceptionWasCaught, 'Exception was not forwarded to the main channel');
         $this->assertNotNull($caughtException, 'No exception was caught by the main channel handler');
-        $this->assertStringContainsString('MCP initialization error', $caughtException->getMessage(), 
-            'Exception message does not contain the expected context');
         $this->assertStringContainsString('Test initialization exception', $caughtException->getMessage(), 
             'Original exception message not present in the forwarded exception');
     }

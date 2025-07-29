@@ -70,7 +70,7 @@ class McpIntegrationTest extends TestCase
         if ($errorMessage && !str_contains($errorMessage, 'Server returned nothing')) {
             $this->fail("Unexpected error during initialization: $errorMessage");
         }
-        
+
         // If we got a successful response, validate it
         if ($initResponse !== null) {
             $this->assertIsArray($initResponse, 'Initialize response should be an array');
@@ -78,7 +78,7 @@ class McpIntegrationTest extends TestCase
             $this->assertArrayHasKey('capabilities', $initResponse, 'Response should contain server capabilities');
             $this->assertArrayHasKey('serverInfo', $initResponse, 'Response should contain server info');
         }
-        
+
         $this->assertTrue(true, 'MCP initialization integration test completed');
     }
 
@@ -139,7 +139,7 @@ class McpIntegrationTest extends TestCase
             $this->assertIsArray($toolsResponse, 'Tools response should be an array');
             $this->assertArrayHasKey('tools', $toolsResponse, 'Response should contain tools array');
             $this->assertIsArray($toolsResponse['tools'], 'Tools should be an array');
-            
+
             // Verify tool structure if tools are present
             if (!empty($toolsResponse['tools'])) {
                 $firstTool = $toolsResponse['tools'][0];
@@ -147,7 +147,7 @@ class McpIntegrationTest extends TestCase
                 $this->assertArrayHasKey('description', $firstTool, 'Tool should have a description');
             }
         }
-        
+
         $this->assertTrue(true, 'MCP tools list integration test completed');
     }
 
@@ -206,7 +206,7 @@ class McpIntegrationTest extends TestCase
             $this->assertIsArray($promptsResponse, 'Prompts response should be an array');
             $this->assertArrayHasKey('prompts', $promptsResponse, 'Response should contain prompts array');
             $this->assertIsArray($promptsResponse['prompts'], 'Prompts should be an array');
-            
+
             // Verify prompt structure if prompts are present
             if (!empty($promptsResponse['prompts'])) {
                 $firstPrompt = $promptsResponse['prompts'][0];
@@ -214,7 +214,7 @@ class McpIntegrationTest extends TestCase
                 $this->assertArrayHasKey('description', $firstPrompt, 'Prompt should have a description');
             }
         }
-        
+
         $this->assertTrue(true, 'MCP prompts list integration test completed');
     }
 
@@ -269,7 +269,7 @@ class McpIntegrationTest extends TestCase
         if ($errorMessage) {
             $this->fail("Unexpected error during notification: $errorMessage");
         }
-        
+
         $this->assertTrue(true, 'MCP notification integration test completed');
     }
 
@@ -292,18 +292,18 @@ class McpIntegrationTest extends TestCase
             $channel->setShowCurlCommand($this->showCurlCommand);
             $channel->setCurlOption(CURLOPT_FORBID_REUSE, 1);
             $channel->setCurlOption(CURLOPT_FRESH_CONNECT, 1);
-    
+
 
             // Set up automatic initialization for each channel
             $channel->setAutomaticInitialize();
 
             $requestId = $request['id'];
-            
+
             $channel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel, Manager $manager) use (&$responses, $requestId): bool {
                 if ($message->isResponse()) {
                     $result = $message->getResult();
                     if (is_array($result) && (
-                        array_key_exists('tools', $result) || 
+                        array_key_exists('tools', $result) ||
                         array_key_exists('prompts', $result)
                     )) {
                         $responses[$requestId] = $result;
@@ -333,11 +333,11 @@ class McpIntegrationTest extends TestCase
         $unexpectedErrors = array_filter($errors, function($error) {
             return !str_contains($error, 'Server returned nothing');
         });
-        
+
         if (!empty($unexpectedErrors)) {
             $this->fail('Concurrent requests had unexpected errors: ' . implode(', ', $unexpectedErrors));
         }
-        
+
         $this->assertTrue(true, 'MCP concurrent requests integration test completed');
     }
 
@@ -377,7 +377,7 @@ class McpIntegrationTest extends TestCase
         if ($errorMessage) {
             $this->fail("Unexpected error during session ID test: $errorMessage");
         }
-        
+
         // Session ID handling depends on server implementation
         // Some servers may not use session IDs, so we just verify no errors occurred
         $this->assertTrue(true, 'Session ID integration test completed without unexpected errors');
@@ -388,6 +388,7 @@ class McpIntegrationTest extends TestCase
         $manager = new Manager();
         $callbackCalled = false;
         $receivedSessionId = null;
+        $channelSessionIdAfterInit = null;
         $errorMessage = null;
 
         // Create a simple tools/list request
@@ -412,8 +413,11 @@ class McpIntegrationTest extends TestCase
             }
         );
 
-        $channel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel, Manager $manager): bool {
-            // We don't need to process the actual response, just verify the callback was called
+        $channel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel, Manager $manager) use (&$channelSessionIdAfterInit): bool {
+            // Capture the channel's session ID after initialization for comparison
+            if ($channelSessionIdAfterInit === null) {
+                $channelSessionIdAfterInit = $channel->getSessionId();
+            }
             return true;
         });
 
@@ -435,16 +439,43 @@ class McpIntegrationTest extends TestCase
 
         // Verify the callback was called
         $this->assertTrue($callbackCalled, 'onInitializedCallback should have been called during initialization');
-        
-        // Session ID could be null for some servers, but callback should still be called
-        $this->assertTrue(
-            $receivedSessionId === null || is_string($receivedSessionId),
-            'Received session ID should be null or a string, got: ' . gettype($receivedSessionId)
-        );
-        
-        if ($receivedSessionId !== null) {
-            $this->assertIsString($receivedSessionId, 'Session ID should be a string when provided');
-            $this->assertNotEmpty($receivedSessionId, 'Session ID should not be empty when provided');
+
+        // If we have a session ID, it should be consistent between callback and channel
+        if ($receivedSessionId !== null || $channelSessionIdAfterInit !== null) {
+            $this->assertEquals(
+                $receivedSessionId,
+                $channelSessionIdAfterInit,
+                'Session ID passed to callback should match the session ID set on the channel'
+            );
+
+            if ($receivedSessionId !== null) {
+                $this->assertIsString($receivedSessionId, 'Session ID should be a string when provided');
+                $this->assertNotEmpty($receivedSessionId, 'Session ID should not be empty when provided');
+
+                // MCP session IDs typically have a specific format - let's validate it looks reasonable
+                $this->assertMatchesRegularExpression(
+                    '/^[a-zA-Z0-9_-]+$/',
+                    $receivedSessionId,
+                    'Session ID should contain only alphanumeric characters, underscores, and hyphens'
+                );
+
+                $this->assertGreaterThan(
+                    5,
+                    strlen($receivedSessionId),
+                    'Session ID should be at least 6 characters long'
+                );
+            }
+        }
+
+        // Additional verification: ensure the callback receives the actual MCP session from headers
+        // not just some random value
+        $finalChannelSessionId = $channel->getSessionId();
+        if ($finalChannelSessionId !== null && $receivedSessionId !== null) {
+            $this->assertEquals(
+                $finalChannelSessionId,
+                $receivedSessionId,
+                'Final channel session ID should match the session ID passed to callback'
+            );
         }
     }
-} 
+}

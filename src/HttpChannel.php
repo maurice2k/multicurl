@@ -340,6 +340,30 @@ class HttpChannel extends Channel
                         $command .= "--connect-timeout " . escapeshellarg((string)($value / 1000)) . " ";
                     }
                     break;
+                case CURLOPT_PROXY:
+                    if (is_string($value)) {
+                        $command .= "--proxy " . escapeshellarg($value) . " ";
+                    }
+                    break;
+                case CURLOPT_PROXYTYPE:
+                    if (is_int($value)) {
+                        if ($value === CURLPROXY_SOCKS5_HOSTNAME || $value === CURLPROXY_SOCKS5) {
+                            $command .= "--socks5-hostname ";
+                        } elseif ($value === CURLPROXY_SOCKS4) {
+                            $command .= "--socks4 ";
+                        }
+                        // HTTP proxy is the default, no need to specify
+                    }
+                    break;
+                case CURLOPT_PROXYUSERPWD:
+                    if (is_string($value)) {
+                        $command .= "--proxy-user " . escapeshellarg($value) . " ";
+                    }
+                    break;
+                case CURLOPT_PROXYAUTH:
+                    // cURL CLI doesn't have direct equivalent for proxy auth method selection
+                    // it automatically negotiates, so we skip this
+                    break;
                 // Skip options already handled or not directly translatable to CLI
                 case CURLOPT_URL:
                 case CURLOPT_POST:

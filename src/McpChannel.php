@@ -447,13 +447,18 @@ class McpChannel extends HttpChannel
         // Forward exceptions from initialization channel to main channel
         $this->initializeChannel->setOnExceptionCallback(function (\Exception $exception, McpChannel $channel) use ($mainChannel) {
             // Forward the exception to the main channel using our helper method
-            $mainChannel->forwardException($exception, 'MCP initialization error');
+            $mainChannel->forwardException($exception);
         });
 
-        // Also set up error forwarding for the error callback
+        // Forward errors from initialization channel to main channel
         $this->initializeChannel->setOnErrorCallback(function (Channel $channel, string $error, int $code, array $info, Manager $manager) use ($mainChannel) {
             // Forward the error to the main channel
             $mainChannel->onError($error, $code, $info, $manager);
+        });
+
+        // Forward timeouts from initialization channel to main channel
+        $this->initializeChannel->setOnTimeoutCallback(function (Channel $channel, int $timeoutType, int $elapsedMS, Manager $manager) use ($mainChannel) {
+            $mainChannel->onTimeout($timeoutType, $elapsedMS, $manager);
         });
 
         $this->setBeforeChannel($this->initializeChannel);
@@ -503,4 +508,4 @@ class McpChannel extends HttpChannel
             throw $exception;
         }
     }
-} 
+}
