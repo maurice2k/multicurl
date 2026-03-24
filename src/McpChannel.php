@@ -31,9 +31,13 @@ use Maurice\Multicurl\Helper\Stream;
 use Maurice\Multicurl\Sse\SseEvent;
 use Maurice\Multicurl\Sse\SseTrait;
 use Maurice\Multicurl\Mcp\RpcMessage;
+use Maurice\Multicurl\Mcp\RpcMessageConfiguratorInterface;
 
 /**
  * MCP (Model Context Protocol) Streamable HTTP client channel
+ *
+ * Optional outbound {@see RpcMessage} customization: the constructor accepts an
+ * optional {@see RpcMessageConfiguratorInterface}; when set, it runs before each outbound send.
  *
  * @author Moritz Fain <moritz@fain.io>
  */
@@ -90,10 +94,12 @@ class McpChannel extends HttpChannel
      *
      * @param string $url MCP endpoint URL
      * @param RpcMessage|null $rpcMessage JSON-RPC message to send
+     * @param RpcMessageConfiguratorInterface|null $rpcMessageConfigurator Optional; when non-null, {@see configure()} runs before each outbound send
      */
     public function __construct(
         string $url,
         private ?RpcMessage $rpcMessage = null,
+        private readonly ?RpcMessageConfiguratorInterface $rpcMessageConfigurator = null,
     ) {
         $method = $rpcMessage ? self::METHOD_POST : self::METHOD_GET;
         parent::__construct($url, $method, $rpcMessage ? $rpcMessage->toJson() : null, 'application/json');
@@ -404,8 +410,17 @@ class McpChannel extends HttpChannel
      */
     public function setRpcMessage(?RpcMessage $rpcMessage): void
     {
+        if ($rpcMessage !== null) {
+            $this->applyOutboundRpcMessageMutations($rpcMessage);
+        }
+
         $this->rpcMessage = $rpcMessage;
-        $this->setBody($rpcMessage ? $rpcMessage->toJson() : null);
+        $this->setBody($rpcMessage?->toJson());
+    }
+
+    private function applyOutboundRpcMessageMutations(RpcMessage $message): void
+    {
+        $this->rpcMessageConfigurator?->configure($message);
     }
 
     public function getRpcMessage(): RpcMessage
@@ -436,10 +451,11 @@ class McpChannel extends HttpChannel
     ): void {
         // Create the initialization channel that will be executed when needed
         $this->initializeChannel = clone $this;
-        $this->initializeChannel->setRpcMessage(RpcMessage::initializeRequest(
-            '2025-06-18',
-            $clientInfo,
-            $capabilities
+        $this->initializeChannel->setRpcMessage(
+            RpcMessage::initializeRequest(
+                '2025-06-18',
+                $clientInfo,
+                $capabilities
         ));
 
         // Set up the initialization callback
