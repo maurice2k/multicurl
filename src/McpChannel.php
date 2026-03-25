@@ -86,6 +86,13 @@ class McpChannel extends HttpChannel
     protected ?\Closure $internalErrorHandler = null;
 
     /**
+     * Same `_meta` as the constructor RpcMessage; applied to RPC this class builds internally.
+     *
+     * @var array<string, mixed>|null
+     */
+    private ?array $outboundMeta = null;
+
+    /**
      * Constructor with setup for both SSE and regular JSON response handling
      *
      * @param string $url MCP endpoint URL
@@ -98,6 +105,8 @@ class McpChannel extends HttpChannel
         $method = $rpcMessage ? self::METHOD_POST : self::METHOD_GET;
         parent::__construct($url, $method, $rpcMessage ? $rpcMessage->toJson() : null, 'application/json');
 
+        $this->bindOutboundMeta($rpcMessage);
+
         $this->setRpcMessage($rpcMessage);
 
         $this->setupSse();
@@ -105,6 +114,23 @@ class McpChannel extends HttpChannel
         $this->setupMessageCallbacks();
 
         $this->setFollowRedirects(true, 2);
+    }
+
+    private function bindOutboundMeta(?RpcMessage $rpcMessage): void
+    {
+        $meta = $rpcMessage?->getMeta();
+        $this->outboundMeta = is_array($meta) ? $meta : null;
+    }
+
+    private function applyOutboundMeta(RpcMessage $message): void
+    {
+        if ($this->outboundMeta === null || $this->outboundMeta === []) {
+            return;
+        }
+
+        foreach ($this->outboundMeta as $key => $value) {
+            $message->setMeta((string) $key, $value);
+        }
     }
 
     private function setupResponseHeaderCallback(): void
@@ -436,11 +462,13 @@ class McpChannel extends HttpChannel
     ): void {
         // Create the initialization channel that will be executed when needed
         $this->initializeChannel = clone $this;
-        $this->initializeChannel->setRpcMessage(RpcMessage::initializeRequest(
+        $initializeRequest = RpcMessage::initializeRequest(
             '2025-06-18',
             $clientInfo,
             $capabilities
-        ));
+        );
+        $this->applyOutboundMeta($initializeRequest);
+        $this->initializeChannel->setRpcMessage($initializeRequest);
 
         // Set up the initialization callback
         $mainChannel = $this; // Reference to the main channel to set session ID
@@ -465,8 +493,11 @@ class McpChannel extends HttpChannel
                         $onInitializedCallback($channel->getSessionId());
                     }
 
-                    $initializedNotificationChannel = clone($channel);
-                    $initializedNotificationChannel->setRpcMessage(RpcMessage::notification('notifications/initialized'));
+                    $initializedNotification = RpcMessage::notification('notifications/initialized');
+                    $mainChannel->applyOutboundMeta($initializedNotification);
+
+                    $initializedNotificationChannel = clone $channel;
+                    $initializedNotificationChannel->setRpcMessage($initializedNotification);
                     $initializedNotificationChannel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel, Manager $manager) {
                         // some MCP servers will hang if the connection is not closed after the initialized notification is sent
                         return false; // force closing the connection
