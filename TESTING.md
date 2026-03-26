@@ -19,8 +19,9 @@ make test-8.1   # Test with PHP 8.1
 make test-8.2   # Test with PHP 8.2
 make test-8.3   # Test with PHP 8.3
 make test-8.4   # Test with PHP 8.4
+make test-8.5   # Test with PHP 8.5
 
-# Run all tests on all supported PHP versions (8.1, 8.2, 8.3, 8.4)
+# Run all tests on all supported PHP versions (8.1, 8.2, 8.3, 8.4, 8.5)
 make test-all
 
 # Run specific test type with specific PHP version
@@ -43,6 +44,7 @@ make clean
 - **php82** - PHP 8.2 container for running tests
 - **php83** - PHP 8.3 container for running tests
 - **php84** - PHP 8.4 container for running tests (default)
+- **php85** - PHP 8.5 container for running tests
 
 ### Testing Approach
 
@@ -59,10 +61,11 @@ The project can be tested with multiple PHP versions:
 - PHP 8.2 
 - PHP 8.3 
 - PHP 8.4 (default)
+- PHP 8.5
 
 A single Dockerfile is used with build arguments to specify the PHP version for each container. The Dockerfile automatically installs a compatible PHPUnit version based on the PHP version:
 - PHPUnit ^10.0 for PHP 8.1 and 8.2
-- PHPUnit ^12.0 for PHP 8.3 and 8.4
+- PHPUnit ^12.0 for PHP 8.3, 8.4 and 8.5
 
 This ensures that tests can run on all supported PHP versions with the appropriate test runner.
 

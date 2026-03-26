@@ -71,6 +71,19 @@ services:
       - TEST_HTTP_SERVER=httpbin:8080
       - TEST_MCP_SERVER=mcp-everything:3001
 
+  # PHP 8.5 container
+  php85:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PHP_VERSION: 8.5
+    networks:
+      - test-network
+    environment:
+      - TEST_HTTP_SERVER=httpbin:8080
+      - TEST_MCP_SERVER=mcp-everything:3001
+
 networks:
   test-network:
     driver: bridge 
