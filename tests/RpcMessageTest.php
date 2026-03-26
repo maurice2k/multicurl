@@ -213,6 +213,69 @@ class RpcMessageTest extends TestCase
         $this->assertArrayNotHasKey('_meta', $array);
     }
 
+    public function testSetMetaBulkArray(): void
+    {
+        $message = RpcMessage::request('test/method');
+
+        $result = $message->setMeta(['foo' => 'bar', 'baz' => 42]);
+
+        $this->assertSame($message, $result); // returns static
+        $this->assertEquals(['foo' => 'bar', 'baz' => 42], $message->getMeta());
+    }
+
+    public function testSetMetaBulkArrayReplacesExisting(): void
+    {
+        $message = RpcMessage::request('test/method');
+        $message->setMeta('old', 'value');
+
+        $message->setMeta(['new' => 'data']);
+
+        // old key must be gone — array replaces, does not merge
+        $this->assertNull($message->getMeta('old'));
+        $this->assertEquals('data', $message->getMeta('new'));
+    }
+
+    public function testSetMetaEmptyArrayClearsMeta(): void
+    {
+        $message = RpcMessage::request('test/method');
+        $message->setMeta('foo', 'bar');
+
+        $message->setMeta([]);
+
+        $this->assertNull($message->getMeta());
+    }
+
+    public function testSetMetaNullClearsMeta(): void
+    {
+        $message = RpcMessage::request('test/method');
+        $message->setMeta('foo', 'bar');
+
+        $message->setMeta(null);
+
+        $this->assertNull($message->getMeta());
+    }
+
+    public function testSetMetaNoArgsClearsMeta(): void
+    {
+        $message = RpcMessage::request('test/method');
+        $message->setMeta('foo', 'bar');
+
+        $message->setMeta();
+
+        $this->assertNull($message->getMeta());
+    }
+
+    public function testSetMetaChaining(): void
+    {
+        $message = RpcMessage::request('test/method');
+
+        $result = $message->setMeta('a', 1)->setMeta('b', 2);
+
+        $this->assertSame($message, $result);
+        $this->assertEquals(1, $message->getMeta('a'));
+        $this->assertEquals(2, $message->getMeta('b'));
+    }
+
     public function testCopyMetaFromCopiesFields(): void
     {
         $source = RpcMessage::toolsListRequest();

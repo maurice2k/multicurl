@@ -71,7 +71,7 @@ class Channel
     /**
      * onReady callback
      *
-     * @var \Closure(Channel, array<array-key, mixed>, Stream, Manager): void|null
+     * @var \Closure(static, array<array-key, mixed>, Stream, Manager): void|null
      */
     private $onReadyCb;
 
@@ -82,7 +82,7 @@ class Channel
      * - TIMEOUT_CONNECTION: Connection establishment timeout (socket + SSL handshake)
      * - TIMEOUT_TOTAL: Total operation timeout (connection + data transfer)
      *
-     * @var \Closure(Channel $channel, int $timeoutType, int $elapsedMS, Manager $manager): void|null
+     * @var \Closure(static $channel, int $timeoutType, int $elapsedMS, Manager $manager): void|null
      *      $channel - The channel that timed out
      *      $timeoutType - Type of timeout (Channel::TIMEOUT_CONNECTION or Channel::TIMEOUT_TOTAL)
      *      $elapsedMS - Elapsed time in milliseconds when timeout occurred
@@ -96,7 +96,7 @@ class Channel
      * Called when a cURL error occurs during the request (excluding timeouts, which have their own callback).
      * Common errors include DNS resolution failures, connection refused, SSL certificate errors, etc.
      *
-     * @var \Closure(Channel $channel, string $message, int $errno, array<array-key, mixed> $info, Manager $manager): void|null
+     * @var \Closure(static $channel, string $message, int $errno, array<array-key, mixed> $info, Manager $manager): void|null
      *      $channel - The channel that encountered the error
      *      $message - Human-readable error message from cURL
      *      $errno - cURL error code (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
@@ -111,7 +111,7 @@ class Channel
      * If the callback returns false, the stream will be closed and the connection aborted.
      * Return null/true in the callback to continue streaming data.
      *
-     * @var \Closure(Channel $channel, Stream $stream, Manager $manager): ?bool
+     * @var \Closure(static $channel, Stream $stream, Manager $manager): ?bool
      *      $channel - The channel that is streaming data
      *      $stream - The stream object for buffer manipulation
      *      $manager - The manager instance handling the request
@@ -330,7 +330,7 @@ class Channel
     /**
      * Sets onReady callback
      *
-     * @param \Closure(Channel $channel, array<array-key, mixed> $info, Stream $stream, Manager $manager): void $onReadyCb
+     * @param \Closure(static $channel, array<array-key, mixed> $info, Stream $stream, Manager $manager): void $onReadyCb
      *      $channel - The channel that is ready
      *      $info - Output of curl_getinfo() containing request details
      *      $stream - The stream object for buffer manipulation
@@ -344,7 +344,7 @@ class Channel
     /**
      * Sets onTimeout callback
      *
-     * @param \Closure(Channel $channel, int $timeoutType, int $elapsedMS, Manager $manager): void $onTimeoutCb
+     * @param \Closure(static $channel, int $timeoutType, int $elapsedMS, Manager $manager): void $onTimeoutCb
      *      $channel - The channel that timed out
      *      $timeoutType - Type of timeout (Channel::TIMEOUT_CONNECTION or Channel::TIMEOUT_TOTAL)
      *      $elapsedMS - Elapsed time in milliseconds when timeout occurred
@@ -358,7 +358,7 @@ class Channel
     /**
      * Sets onError callback
      *
-     * @param \Closure(Channel $channel, string $message, int $errno, array<array-key, mixed> $info, Manager $manager): void $onErrorCb
+     * @param \Closure(static $channel, string $message, int $errno, array<array-key, mixed> $info, Manager $manager): void $onErrorCb
      *      $channel - The channel that encountered the error
      *      $message - Human-readable error message from cURL
      *      $errno - cURL error code (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)
@@ -376,7 +376,7 @@ class Channel
      * If the callback returns false, the stream will be closed and the connection aborted.
      * Return null/true in the callback to continue streaming data.
      *
-     * @param \Closure(Channel $channel, Stream $stream, Manager $manager): ?bool $onStreamCb
+     * @param \Closure(static $channel, Stream $stream, Manager $manager): ?bool $onStreamCb
      *      $channel - The channel that is streaming data
      *      $stream - The stream object for buffer manipulation
      *      $manager - The manager instance handling the request

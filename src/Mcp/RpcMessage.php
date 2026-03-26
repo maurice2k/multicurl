@@ -547,24 +547,30 @@ class RpcMessage
     }
 
     /**
-     * Set a specific metadata field
+     * Set metadata — either a single field or a full array (replaces all meta).
+     * Passing an empty array, or no arguments, clears all metadata.
      *
-     * @param string $field The metadata field name
-     * @param mixed $value The value to set
+     * @param string|array<string, mixed>|null $field Field name, associative array, or null to clear
+     * @param mixed $value Value when $field is a string; null clears all meta
      */
-    public function setMeta(string $field, mixed $value): void
+    public function setMeta(string|array|null $field = null, mixed $value = null): static
     {
-        if ($this->_meta === null) {
-            $this->_meta = [];
+        if (is_array($field)) {
+            $this->_meta = $field !== [] ? $field : null;
+        } elseif ($field === null) {
+            $this->_meta = null;
+        } else {
+            $this->_meta ??= [];
+            $this->_meta[$field] = $value;
         }
-        $this->_meta[$field] = $value;
+        return $this;
     }
 
     /**
-     * Get metadata field or full metadata structure
+     * Get a specific metadata field or the full metadata array.
      *
-     * @param string|null $field The specific field to get, or null for all metadata
-     * @return mixed The field value, full metadata array, or null if not found
+     * @param string|null $field Field name, or null for the full array
+     * @return mixed
      */
     public function getMeta(?string $field = null): mixed
     {
