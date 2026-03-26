@@ -436,11 +436,13 @@ class McpChannel extends HttpChannel
     ): void {
         // Create the initialization channel that will be executed when needed
         $this->initializeChannel = clone $this;
-        $this->initializeChannel->setRpcMessage(RpcMessage::initializeRequest(
+        $initializeRequest = RpcMessage::initializeRequest(
             '2025-06-18',
             $clientInfo,
             $capabilities
-        ));
+        );
+        $initializeRequest->setMeta($this->rpcMessage?->getMeta());
+        $this->initializeChannel->setRpcMessage($initializeRequest);
 
         // Set up the initialization callback
         $mainChannel = $this; // Reference to the main channel to set session ID
@@ -465,8 +467,11 @@ class McpChannel extends HttpChannel
                         $onInitializedCallback($channel->getSessionId());
                     }
 
-                    $initializedNotificationChannel = clone($channel);
-                    $initializedNotificationChannel->setRpcMessage(RpcMessage::notification('notifications/initialized'));
+                    $initializedNotification = RpcMessage::notification('notifications/initialized');
+                    $initializedNotification->setMeta($mainChannel->rpcMessage?->getMeta());
+
+                    $initializedNotificationChannel = clone $channel;
+                    $initializedNotificationChannel->setRpcMessage($initializedNotification);
                     $initializedNotificationChannel->setOnMcpMessageCallback(function (RpcMessage $message, McpChannel $channel, Manager $manager) {
                         // some MCP servers will hang if the connection is not closed after the initialized notification is sent
                         return false; // force closing the connection

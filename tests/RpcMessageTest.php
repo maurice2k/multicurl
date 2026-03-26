@@ -275,4 +275,4 @@ class RpcMessageTest extends TestCase
         $this->assertEquals(1, $message->getMeta('a'));
         $this->assertEquals(2, $message->getMeta('b'));
     }
-} 
+}
