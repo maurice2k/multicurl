@@ -552,6 +552,56 @@ class McpChannelTest extends TestCase
     /**
      * Test to see if a redirect to mcpserver works
      */
+    /**
+     * Test that HTTP status codes >= 400 trigger the error callback via onReady
+     */
+    public function testHttpErrorStatusTriggersOnError(): void
+    {
+        foreach ([400, 401, 403, 404, 500, 503] as $statusCode) {
+            $channel = new McpChannel('http://localhost/mcp', RpcMessage::toolsListRequest());
+
+            $errorMessage = null;
+            $errorCode = null;
+            $channel->setOnErrorCallback(function (McpChannel $channel, string $message, int $errno) use (&$errorMessage, &$errorCode) {
+                $errorMessage = $message;
+                $errorCode = $errno;
+            });
+
+            $ref = new \ReflectionProperty(McpChannel::class, 'httpStatusCode');
+            $ref->setAccessible(true);
+            $ref->setValue($channel, $statusCode);
+
+            $channel->onReady([], '', new Manager());
+
+            $this->assertNotNull($errorMessage, "Expected error for HTTP {$statusCode}");
+            $this->assertStringContainsString((string)$statusCode, $errorMessage);
+            $this->assertEquals(CURLE_HTTP_RETURNED_ERROR, $errorCode);
+        }
+    }
+
+    /**
+     * Test that HTTP status codes < 400 do not trigger the error callback
+     */
+    public function testHttpSuccessStatusDoesNotTriggerOnError(): void
+    {
+        foreach ([200, 201, 204, 301, 399] as $statusCode) {
+            $channel = new McpChannel('http://localhost/mcp', RpcMessage::toolsListRequest());
+
+            $errorTriggered = false;
+            $channel->setOnErrorCallback(function () use (&$errorTriggered) {
+                $errorTriggered = true;
+            });
+
+            $ref = new \ReflectionProperty(McpChannel::class, 'httpStatusCode');
+            $ref->setAccessible(true);
+            $ref->setValue($channel, $statusCode);
+
+            $channel->onReady([], '', new Manager());
+
+            $this->assertFalse($errorTriggered, "No error expected for HTTP {$statusCode}");
+        }
+    }
+
     public function testRedirectToMcpServer(): void
     {
         // Create MCP channel with redirect settings

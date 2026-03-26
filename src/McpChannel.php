@@ -165,10 +165,10 @@ class McpChannel extends HttpChannel
         });
 
         // Hook into regular response handling
-        parent::setOnReadyCallback(function(Channel $channel, array $info, Stream $stream, Manager $manager) {
+        parent::setOnReadyCallback(function(McpChannel $channel, array $info, Stream $stream, Manager $manager) {
             if ($channel->getHttpStatusCode() >= 400) {
                 $this->onError('HTTP request failed: ' . $channel->getHttpStatusCode(), CURLE_HTTP_RETURNED_ERROR, $info, $manager);
-                return false;
+                return;
             }
 
             if (!$this->isStreamable() && $stream->getSize() > 0) {
