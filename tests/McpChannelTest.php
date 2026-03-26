@@ -629,7 +629,7 @@ class McpChannelTest extends TestCase
         $this->assertTrue(true, "MCP channel redirect functionality verified");
     }
 
-    public function testSetAutomaticInitializeCopiesConstructorMetaOntoInitializeRequest(): void
+    public function testSetAutomaticInitializeCopiesMetaToInitializeRequest(): void
     {
         $tools = RpcMessage::toolsListRequest();
         $tools->setMeta('traceId', 'trace-123');
@@ -641,10 +641,10 @@ class McpChannelTest extends TestCase
         $this->assertNotNull($initChannel);
         assert($initChannel instanceof McpChannel);
 
-        $initDecoded = json_decode($initChannel->getRpcMessage()->toJson(), true);
-        $this->assertIsArray($initDecoded);
-        $this->assertSame('initialize', $initDecoded['method'] ?? null);
-        $this->assertSame('trace-123', $initDecoded['_meta']['traceId'] ?? null);
+        $initRpc = $initChannel->getRpcMessage();
+        $this->assertSame('initialize', $initRpc->getMethod());
+        $this->assertSame('trace-123', $initRpc->getMeta('traceId'));
+        $this->assertEquals($tools->getMeta(), $initRpc->getMeta());
     }
 }
 
