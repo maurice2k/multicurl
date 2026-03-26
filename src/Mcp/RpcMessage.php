@@ -580,23 +580,4 @@ class RpcMessage
 
         return $this->_meta[$field] ?? null;
     }
-
-    /**
-     * Copy `_meta` from another message onto this one (by field).
-     */
-    public function copyMetaFrom(?RpcMessage $source): void
-    {
-        if ($source === null) {
-            return;
-        }
-
-        $meta = $source->getMeta();
-        if (!is_array($meta) || $meta === []) {
-            return;
-        }
-
-        foreach ($meta as $key => $value) {
-            $this->setMeta((string) $key, $value);
-        }
-    }
 }

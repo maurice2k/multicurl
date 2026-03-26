@@ -441,7 +441,7 @@ class McpChannel extends HttpChannel
             $clientInfo,
             $capabilities
         );
-        $initializeRequest->copyMetaFrom($this->rpcMessage);
+        $initializeRequest->setMeta($this->rpcMessage?->getMeta());
         $this->initializeChannel->setRpcMessage($initializeRequest);
 
         // Set up the initialization callback
@@ -468,7 +468,7 @@ class McpChannel extends HttpChannel
                     }
 
                     $initializedNotification = RpcMessage::notification('notifications/initialized');
-                    $initializedNotification->copyMetaFrom($mainChannel->rpcMessage);
+                    $initializedNotification->setMeta($mainChannel->rpcMessage?->getMeta());
 
                     $initializedNotificationChannel = clone $channel;
                     $initializedNotificationChannel->setRpcMessage($initializedNotification);

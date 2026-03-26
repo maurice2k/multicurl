@@ -276,35 +276,16 @@ class RpcMessageTest extends TestCase
         $this->assertEquals(2, $message->getMeta('b'));
     }
 
-    public function testCopyMetaFromCopiesFields(): void
+    public function testSetMetaWithGetMetaCopiesFullMetaBetweenMessages(): void
     {
         $source = RpcMessage::toolsListRequest();
         $source->setMeta('traceId', 't1');
         $source->setMeta('tenant', 'acme');
 
         $target = RpcMessage::initializeRequest();
-        $target->copyMetaFrom($source);
+        $target->setMeta($source->getMeta());
 
         $this->assertSame('t1', $target->getMeta('traceId'));
         $this->assertSame('acme', $target->getMeta('tenant'));
-    }
-
-    public function testCopyMetaFromNullSourceIsNoOp(): void
-    {
-        $target = RpcMessage::toolsListRequest();
-        $target->copyMetaFrom(null);
-
-        $this->assertNull($target->getMeta());
-    }
-
-    public function testCopyMetaFromEmptySourceMetaIsNoOp(): void
-    {
-        $source = RpcMessage::toolsListRequest();
-        $target = RpcMessage::notification('notifications/initialized');
-        $target->copyMetaFrom($source);
-
-        $decoded = json_decode($target->toJson(), true);
-        $this->assertIsArray($decoded);
-        $this->assertArrayNotHasKey('_meta', $decoded);
     }
 } 
