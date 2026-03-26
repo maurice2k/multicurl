@@ -86,13 +86,6 @@ class McpChannel extends HttpChannel
     protected ?\Closure $internalErrorHandler = null;
 
     /**
-     * Same `_meta` as the constructor RpcMessage; applied to RPC this class builds internally.
-     *
-     * @var array<string, mixed>|null
-     */
-    private ?array $outboundMeta = null;
-
-    /**
      * Constructor with setup for both SSE and regular JSON response handling
      *
      * @param string $url MCP endpoint URL
@@ -105,8 +98,6 @@ class McpChannel extends HttpChannel
         $method = $rpcMessage ? self::METHOD_POST : self::METHOD_GET;
         parent::__construct($url, $method, $rpcMessage ? $rpcMessage->toJson() : null, 'application/json');
 
-        $this->bindOutboundMeta($rpcMessage);
-
         $this->setRpcMessage($rpcMessage);
 
         $this->setupSse();
@@ -114,23 +105,6 @@ class McpChannel extends HttpChannel
         $this->setupMessageCallbacks();
 
         $this->setFollowRedirects(true, 2);
-    }
-
-    private function bindOutboundMeta(?RpcMessage $rpcMessage): void
-    {
-        $meta = $rpcMessage?->getMeta();
-        $this->outboundMeta = is_array($meta) ? $meta : null;
-    }
-
-    private function applyOutboundMeta(RpcMessage $message): void
-    {
-        if ($this->outboundMeta === null || $this->outboundMeta === []) {
-            return;
-        }
-
-        foreach ($this->outboundMeta as $key => $value) {
-            $message->setMeta((string) $key, $value);
-        }
     }
 
     private function setupResponseHeaderCallback(): void
@@ -467,7 +441,7 @@ class McpChannel extends HttpChannel
             $clientInfo,
             $capabilities
         );
-        $this->applyOutboundMeta($initializeRequest);
+        $initializeRequest->copyMetaFrom($this->rpcMessage);
         $this->initializeChannel->setRpcMessage($initializeRequest);
 
         // Set up the initialization callback
@@ -494,7 +468,7 @@ class McpChannel extends HttpChannel
                     }
 
                     $initializedNotification = RpcMessage::notification('notifications/initialized');
-                    $mainChannel->applyOutboundMeta($initializedNotification);
+                    $initializedNotification->copyMetaFrom($mainChannel->rpcMessage);
 
                     $initializedNotificationChannel = clone $channel;
                     $initializedNotificationChannel->setRpcMessage($initializedNotification);
