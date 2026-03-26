@@ -76,7 +76,7 @@ trait SseTrait
      * If the callback returns false, the stream will be closed and the connection aborted.
      * Return null/true in the callback to continue streaming data.
      *
-     * @param \Closure(Channel $channel, Stream $stream, Manager $manager): ?bool $onStreamCb
+     * @param \Closure(static $channel, Stream $stream, Manager $manager): ?bool $onStreamCb
      */
     abstract public function setOnStreamCallback(\Closure $onStreamCb): void;
 
