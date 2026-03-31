@@ -275,6 +275,48 @@ class RpcMessageTest extends TestCase
         $this->assertEquals('trace-1', $restored->getMeta('traceId'));
     }
 
+    public function testSetMetaReplacementDoesNotResurrectParsedKeys(): void
+    {
+        // Parse a message with multiple _meta keys
+        $data = [
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'test/method',
+            'params' => [
+                'name' => 'foo',
+                '_meta' => ['sessionId' => 'old', 'userId' => 'u1']
+            ]
+        ];
+        $message = RpcMessage::fromArray($data);
+
+        // Full replacement — userId must NOT survive
+        $message->setMeta(['sessionId' => 'new']);
+
+        $array = $message->toArray();
+        $this->assertEquals('new', $array['params']['_meta']['sessionId']);
+        $this->assertArrayNotHasKey('userId', $array['params']['_meta']);
+    }
+
+    public function testSetMetaNullClearsAfterParsing(): void
+    {
+        $data = [
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'test/method',
+            'params' => [
+                'name' => 'foo',
+                '_meta' => ['sessionId' => 'sess']
+            ]
+        ];
+        $message = RpcMessage::fromArray($data);
+
+        $message->setMeta(null);
+
+        $this->assertNull($message->getMeta());
+        $array = $message->toArray();
+        $this->assertArrayNotHasKey('_meta', $array['params']);
+    }
+
     public function testMetaMergesWithExistingResultMeta(): void
     {
         $result = [

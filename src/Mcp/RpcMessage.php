@@ -378,9 +378,10 @@ class RpcMessage
             $message->method = $data['method'];
             $message->params = $data['params'] ?? null;
 
-            // Extract _meta from inside params (per MCP spec)
+            // Extract _meta from inside params (per MCP spec) — unset so _meta property is the single source of truth
             if (is_array($message->params) && isset($message->params['_meta']) && is_array($message->params['_meta'])) {
                 $message->_meta = $message->params['_meta'];
+                unset($message->params['_meta']);
             }
         } else {
             if (isset($data['error'])) {
@@ -390,9 +391,10 @@ class RpcMessage
                 $message->type = self::TYPE_RESPONSE;
                 $message->result = $data['result'] ?? null;
 
-                // Extract _meta from inside result (per MCP spec)
+                // Extract _meta from inside result (per MCP spec) — unset so _meta property is the single source of truth
                 if (is_array($message->result) && isset($message->result['_meta']) && is_array($message->result['_meta'])) {
                     $message->_meta = $message->result['_meta'];
+                    unset($message->result['_meta']);
                 }
             }
             $message->id = $data['id'] ?? null;
