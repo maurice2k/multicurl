@@ -398,7 +398,35 @@ class RpcMessage
             $message->id = $data['id'] ?? null;
         }
 
+        // Backward compat: also accept root-level _meta (old wire format)
+        if ($message->_meta === null && isset($data['_meta']) && is_array($data['_meta'])) {
+            $message->_meta = $data['_meta'];
+        }
+
         return $message;
+    }
+
+    /**
+     * Merge _meta into a payload (params or result), converting stdClass/null to array as needed.
+     */
+    private function mergeMetaIntoPayload(mixed $payload): mixed
+    {
+        if ($this->_meta === null) {
+            return $payload;
+        }
+
+        if ($payload instanceof \stdClass) {
+            $payload = (array)$payload;
+        } elseif ($payload === null) {
+            $payload = [];
+        }
+
+        if (is_array($payload)) {
+            $existing = is_array($payload['_meta'] ?? null) ? $payload['_meta'] : [];
+            $payload['_meta'] = array_merge($existing, $this->_meta);
+        }
+
+        return $payload;
     }
 
     /**
@@ -415,17 +443,7 @@ class RpcMessage
         if ($this->type === self::TYPE_REQUEST || $this->type === self::TYPE_NOTIFICATION) {
             $result['method'] = $this->method;
 
-            $params = $this->params;
-
-            if ($this->_meta !== null) {
-                if ($params === null || $params instanceof \stdClass) {
-                    $params = [];
-                }
-                if (is_array($params)) {
-                    $existing = is_array($params['_meta'] ?? null) ? $params['_meta'] : [];
-                    $params['_meta'] = array_merge($existing, $this->_meta);
-                }
-            }
+            $params = $this->mergeMetaIntoPayload($this->params);
 
             if ($params !== null) {
                 $result['params'] = $params;
@@ -438,19 +456,7 @@ class RpcMessage
             if ($this->type === self::TYPE_ERROR) {
                 $result['error'] = $this->error;
             } else {
-                $responseResult = $this->result;
-
-                if ($this->_meta !== null) {
-                    if ($responseResult === null || $responseResult instanceof \stdClass) {
-                        $responseResult = [];
-                    }
-                    if (is_array($responseResult)) {
-                        $existing = is_array($responseResult['_meta'] ?? null) ? $responseResult['_meta'] : [];
-                        $responseResult['_meta'] = array_merge($existing, $this->_meta);
-                    }
-                }
-
-                $result['result'] = $responseResult;
+                $result['result'] = $this->mergeMetaIntoPayload($this->result);
             }
 
             if ($this->id !== null) {

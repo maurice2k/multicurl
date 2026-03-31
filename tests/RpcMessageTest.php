@@ -321,6 +321,64 @@ class RpcMessageTest extends TestCase
         $this->assertArrayHasKey('tools', $message->getResult());
     }
 
+    public function testMetaPreservesStdClassProperties(): void
+    {
+        // P1: stdClass params must not lose existing properties when _meta is added
+        $message = RpcMessage::request('x', (object)['foo' => 'bar']);
+        $message->setMeta('traceId', 'trace-1');
+
+        $array = $message->toArray();
+
+        $this->assertEquals('bar', $array['params']['foo']);
+        $this->assertEquals('trace-1', $array['params']['_meta']['traceId']);
+    }
+
+    public function testMetaPreservesStdClassResultProperties(): void
+    {
+        $message = RpcMessage::response((object)['tools' => []], 1);
+        $message->setMeta('cursor', 'page2');
+
+        $array = $message->toArray();
+
+        $this->assertEquals([], $array['result']['tools']);
+        $this->assertEquals('page2', $array['result']['_meta']['cursor']);
+    }
+
+    public function testFromArrayReadsRootLevelMetaForBackwardCompat(): void
+    {
+        // P2: old wire format with _meta at root level must still be understood
+        $data = [
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'test/method',
+            'params' => ['param' => 'value'],
+            '_meta' => ['sessionId' => 'sess_old']
+        ];
+
+        $message = RpcMessage::fromArray($data);
+
+        $this->assertEquals('sess_old', $message->getMeta('sessionId'));
+    }
+
+    public function testFromArrayPrefersNestedMetaOverRootLevel(): void
+    {
+        // When both root-level and nested _meta exist, nested wins
+        $data = [
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'test/method',
+            'params' => [
+                'param' => 'value',
+                '_meta' => ['source' => 'nested']
+            ],
+            '_meta' => ['source' => 'root']
+        ];
+
+        $message = RpcMessage::fromArray($data);
+
+        $this->assertEquals('nested', $message->getMeta('source'));
+    }
+
     public function testSetMetaBulkArray(): void
     {
         $message = RpcMessage::request('test/method');
