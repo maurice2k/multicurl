@@ -114,15 +114,16 @@ class RpcMessageTest extends TestCase
         $message = RpcMessage::request('test/method', ['param' => 'value']);
         $message->setMeta('sessionId', 'sess_abc123');
         $message->setMeta('userId', 'user_456');
-        
+
         $array = $message->toArray();
-        
-        // Verify _meta is included in serialization
-        $this->assertArrayHasKey('_meta', $array);
+
+        // _meta must be inside params, not at the root level
+        $this->assertArrayNotHasKey('_meta', $array);
+        $this->assertArrayHasKey('_meta', $array['params']);
         $this->assertEquals([
             'sessionId' => 'sess_abc123',
             'userId' => 'user_456'
-        ], $array['_meta']);
+        ], $array['params']['_meta']);
     }
 
     public function testMetaSerializationToJson(): void
@@ -130,16 +131,17 @@ class RpcMessageTest extends TestCase
         $message = RpcMessage::request('test/method', ['param' => 'value']);
         $message->setMeta('sessionId', 'sess_abc123');
         $message->setMeta('userId', 'user_456');
-        
+
         $json = $message->toJson();
         $decoded = json_decode($json, true);
-        
-        // Verify _meta is included in JSON
-        $this->assertArrayHasKey('_meta', $decoded);
+
+        // _meta must be inside params, not at the root level
+        $this->assertArrayNotHasKey('_meta', $decoded);
+        $this->assertArrayHasKey('_meta', $decoded['params']);
         $this->assertEquals([
             'sessionId' => 'sess_abc123',
             'userId' => 'user_456'
-        ], $decoded['_meta']);
+        ], $decoded['params']['_meta']);
     }
 
     public function testMetaDeserializationFromArray(): void
@@ -148,31 +150,36 @@ class RpcMessageTest extends TestCase
             'jsonrpc' => '2.0',
             'id' => 1,
             'method' => 'test/method',
-            'params' => ['param' => 'value'],
-            '_meta' => [
-                'sessionId' => 'sess_abc123',
-                'userId' => 'user_456'
+            'params' => [
+                'param' => 'value',
+                '_meta' => [
+                    'sessionId' => 'sess_abc123',
+                    'userId' => 'user_456'
+                ]
             ]
         ];
-        
+
         $message = RpcMessage::fromArray($data);
-        
-        // Verify metadata was parsed correctly
+
+        // Verify metadata was extracted from params
         $this->assertEquals('sess_abc123', $message->getMeta('sessionId'));
         $this->assertEquals('user_456', $message->getMeta('userId'));
         $this->assertEquals([
             'sessionId' => 'sess_abc123',
             'userId' => 'user_456'
         ], $message->getMeta());
+
+        // params still contains _meta as-is from the wire
+        $this->assertEquals('value', $message->getParams()['param']);
     }
 
     public function testMetaDeserializationFromJson(): void
     {
-        $json = '{"jsonrpc":"2.0","id":1,"method":"test/method","params":{"param":"value"},"_meta":{"sessionId":"sess_abc123","userId":"user_456"}}';
-        
+        $json = '{"jsonrpc":"2.0","id":1,"method":"test/method","params":{"param":"value","_meta":{"sessionId":"sess_abc123","userId":"user_456"}}}';
+
         $message = RpcMessage::fromJson($json);
-        
-        // Verify metadata was parsed correctly
+
+        // Verify metadata was extracted from params
         $this->assertEquals('sess_abc123', $message->getMeta('sessionId'));
         $this->assertEquals('user_456', $message->getMeta('userId'));
         $this->assertEquals([
@@ -203,14 +210,115 @@ class RpcMessageTest extends TestCase
     public function testMetaWithoutMetadata(): void
     {
         $message = RpcMessage::request('test/method');
-        
+
         // Test message without any metadata
         $this->assertNull($message->getMeta());
         $this->assertNull($message->getMeta('anyField'));
-        
-        // Verify serialization doesn't include _meta
+
+        // Verify serialization doesn't include _meta at root or in params
         $array = $message->toArray();
         $this->assertArrayNotHasKey('_meta', $array);
+        if (is_array($array['params'] ?? null)) {
+            $this->assertArrayNotHasKey('_meta', $array['params']);
+        }
+    }
+
+    public function testMetaMergesWithExistingParamsMeta(): void
+    {
+        // Params already contain a _meta with progressToken
+        $params = [
+            '_meta' => ['progressToken' => 'tok-42'],
+            'name' => 'my-tool',
+        ];
+        $message = RpcMessage::request('tools/call', $params);
+
+        // setMeta adds extra fields via the public API
+        $message->setMeta('sessionId', 'sess_abc');
+
+        $array = $message->toArray();
+
+        // Both the original progressToken and the added sessionId must be present
+        $this->assertEquals('tok-42', $array['params']['_meta']['progressToken']);
+        $this->assertEquals('sess_abc', $array['params']['_meta']['sessionId']);
+    }
+
+    public function testMetaSetViaApiOverridesExistingParamsMetaKey(): void
+    {
+        // Params already have a _meta key that will also be set via setMeta
+        $params = [
+            '_meta' => ['progressToken' => 'old-token'],
+            'name' => 'my-tool',
+        ];
+        $message = RpcMessage::request('tools/call', $params);
+
+        // Override the same key via the public API — setMeta wins
+        $message->setMeta('progressToken', 'new-token');
+
+        $array = $message->toArray();
+        $this->assertEquals('new-token', $array['params']['_meta']['progressToken']);
+    }
+
+    public function testMetaMergeRoundTrip(): void
+    {
+        // Build a request whose params already contain _meta.progressToken
+        $params = [
+            '_meta' => ['progressToken' => 'tok-99'],
+            'name' => 'search',
+        ];
+        $message = RpcMessage::request('tools/call', $params);
+        $message->setMeta('traceId', 'trace-1');
+
+        // Serialize and parse back
+        $restored = RpcMessage::fromJson($message->toJson());
+
+        $this->assertEquals('tok-99', $restored->getMeta('progressToken'));
+        $this->assertEquals('trace-1', $restored->getMeta('traceId'));
+    }
+
+    public function testMetaMergesWithExistingResultMeta(): void
+    {
+        $result = [
+            '_meta' => ['cursor' => 'page2'],
+            'tools' => [],
+        ];
+        $message = RpcMessage::response($result, 1);
+
+        $message->setMeta('extra', 'value');
+
+        $array = $message->toArray();
+
+        $this->assertEquals('page2', $array['result']['_meta']['cursor']);
+        $this->assertEquals('value', $array['result']['_meta']['extra']);
+    }
+
+    public function testMetaInResponseResult(): void
+    {
+        // Verify _meta is nested inside result for responses
+        $message = RpcMessage::response(['tools' => []], 1);
+        $message->setMeta('serverTime', 1640995200);
+
+        $array = $message->toArray();
+
+        $this->assertArrayNotHasKey('_meta', $array);
+        $this->assertArrayHasKey('_meta', $array['result']);
+        $this->assertEquals(['serverTime' => 1640995200], $array['result']['_meta']);
+    }
+
+    public function testMetaDeserializationFromResponse(): void
+    {
+        $data = [
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'result' => [
+                'tools' => [],
+                '_meta' => ['serverTime' => 1640995200]
+            ]
+        ];
+
+        $message = RpcMessage::fromArray($data);
+
+        $this->assertEquals(1640995200, $message->getMeta('serverTime'));
+        $this->assertArrayHasKey('tools', $message->getResult());
     }
 
     public function testSetMetaBulkArray(): void

@@ -377,6 +377,11 @@ class RpcMessage
             }
             $message->method = $data['method'];
             $message->params = $data['params'] ?? null;
+
+            // Extract _meta from inside params (per MCP spec)
+            if (is_array($message->params) && isset($message->params['_meta']) && is_array($message->params['_meta'])) {
+                $message->_meta = $message->params['_meta'];
+            }
         } else {
             if (isset($data['error'])) {
                 $message->type = self::TYPE_ERROR;
@@ -384,13 +389,13 @@ class RpcMessage
             } else {
                 $message->type = self::TYPE_RESPONSE;
                 $message->result = $data['result'] ?? null;
+
+                // Extract _meta from inside result (per MCP spec)
+                if (is_array($message->result) && isset($message->result['_meta']) && is_array($message->result['_meta'])) {
+                    $message->_meta = $message->result['_meta'];
+                }
             }
             $message->id = $data['id'] ?? null;
-        }
-
-        // Handle metadata if present
-        if (isset($data['_meta']) && is_array($data['_meta'])) {
-            $message->_meta = $data['_meta'];
         }
 
         return $message;
@@ -410,8 +415,20 @@ class RpcMessage
         if ($this->type === self::TYPE_REQUEST || $this->type === self::TYPE_NOTIFICATION) {
             $result['method'] = $this->method;
 
-            if ($this->params !== null) {
-                $result['params'] = $this->params;
+            $params = $this->params;
+
+            if ($this->_meta !== null) {
+                if ($params === null || $params instanceof \stdClass) {
+                    $params = [];
+                }
+                if (is_array($params)) {
+                    $existing = is_array($params['_meta'] ?? null) ? $params['_meta'] : [];
+                    $params['_meta'] = array_merge($existing, $this->_meta);
+                }
+            }
+
+            if ($params !== null) {
+                $result['params'] = $params;
             }
 
             if ($this->type === self::TYPE_REQUEST) {
@@ -421,17 +438,24 @@ class RpcMessage
             if ($this->type === self::TYPE_ERROR) {
                 $result['error'] = $this->error;
             } else {
-                $result['result'] = $this->result;
+                $responseResult = $this->result;
+
+                if ($this->_meta !== null) {
+                    if ($responseResult === null || $responseResult instanceof \stdClass) {
+                        $responseResult = [];
+                    }
+                    if (is_array($responseResult)) {
+                        $existing = is_array($responseResult['_meta'] ?? null) ? $responseResult['_meta'] : [];
+                        $responseResult['_meta'] = array_merge($existing, $this->_meta);
+                    }
+                }
+
+                $result['result'] = $responseResult;
             }
 
             if ($this->id !== null) {
                 $result['id'] = $this->id;
             }
-        }
-
-        // Include metadata if present
-        if ($this->_meta !== null) {
-            $result['_meta'] = $this->_meta;
         }
 
         return $result;
