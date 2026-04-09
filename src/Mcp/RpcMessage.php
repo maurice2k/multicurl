@@ -1,5 +1,5 @@
 <?php
-declare(strict_types = 1);
+declare(strict_types=1);
 
 /**
  * Multicurl -- Object based asynchronous multi-curl wrapper
@@ -85,14 +85,18 @@ class RpcMessage
     protected static function getNextId(): string
     {
         static $counter = 0;
+
         return (string)++$counter;
     }
 
     /**
      * Create a new initialize request message
      *
+     * @param string $protocolVersion
      * @param array<string, mixed>|null $clientInfo
      * @param array<string, mixed>|null $capabilities
+     * @param mixed $id
+     * @return RpcMessage
      */
     public static function initializeRequest(
         string $protocolVersion = '2025-06-18',
@@ -180,10 +184,14 @@ class RpcMessage
 
     /**
      * Create a new tools/list request message
+     *
+     * @param mixed $id
+     * @param array<string, mixed>|null $params
+     * @return RpcMessage
      */
-    public static function toolsListRequest(mixed $id = null): self
+    public static function toolsListRequest(mixed $id = null, ?array $params = null): self
     {
-        return self::request('tools/list', null, $id);
+        return self::request('tools/list', $params, $id);
     }
 
     /**
@@ -211,12 +219,17 @@ class RpcMessage
 
         return self::request('tools/call', $params, $id);
     }
+
     /**
      * Create a new prompts/list request message
+     *
+     * @param mixed $id
+     * @param array<string, mixed>|null $params
+     * @return RpcMessage
      */
-    public static function promptsListRequest(mixed $id = null): self
+    public static function promptsListRequest(mixed $id = null, ?array $params = null): self
     {
-        return self::request('prompts/list', null, $id);
+        return self::request('prompts/list', $params, $id);
     }
 
     /**
@@ -429,6 +442,7 @@ class RpcMessage
         if ($json === false) {
             throw new \RuntimeException('Failed to encode JSON: ' . json_last_error_msg());
         }
+
         return $json;
     }
 

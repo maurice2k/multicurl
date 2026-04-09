@@ -63,6 +63,36 @@ class RpcMessageTest extends TestCase
         $this->assertInstanceOf(stdClass::class, $message->getParams());
     }
 
+    public function testToolsListRequestAcceptsCustomParams(): void
+    {
+        $params = [
+            '_meta' => [
+                'channel' => 'phone',
+            ],
+            'cursor' => 'next-page',
+        ];
+
+        $message = RpcMessage::toolsListRequest(params: $params);
+
+        $this->assertSame($params, $message->getParams());
+    }
+
+    public function testPromptsListRequestAcceptsCustomParams(): void
+    {
+        $params = [
+            '_meta' => [
+                'channel' => 'phone',
+            ],
+            'cursor' => 'next-page',
+        ];
+
+        $message = RpcMessage::promptsListRequest(params: $params);
+
+        $this->assertTrue($message->isRequest());
+        $this->assertSame('prompts/list', $message->getMethod());
+        $this->assertSame($params, $message->getParams());
+    }
+
     public function testToolsCallRequestBuildsExpectedParams(): void
     {
         $message = RpcMessage::toolsCallRequest('my_tool', ['a' => 1], ['type' => 'object']);
