@@ -72,13 +72,6 @@ class RpcMessage
     protected mixed $id = null;
 
     /**
-     * Metadata for the message
-     *
-     * @var array<string, mixed>|null
-     */
-    protected ?array $_meta = null;
-
-    /**
      * Constants for message types
      */
     public const TYPE_REQUEST = 'request';
@@ -388,11 +381,6 @@ class RpcMessage
             $message->id = $data['id'] ?? null;
         }
 
-        // Handle metadata if present
-        if (isset($data['_meta']) && is_array($data['_meta'])) {
-            $message->_meta = $data['_meta'];
-        }
-
         return $message;
     }
 
@@ -427,11 +415,6 @@ class RpcMessage
             if ($this->id !== null) {
                 $result['id'] = $this->id;
             }
-        }
-
-        // Include metadata if present
-        if ($this->_meta !== null) {
-            $result['_meta'] = $this->_meta;
         }
 
         return $result;
@@ -544,40 +527,5 @@ class RpcMessage
     public function getErrorCode(): int
     {
         return $this->error['code'] ?? 0;
-    }
-
-    /**
-     * Set metadata — either a single field or a full array (replaces all meta).
-     * Passing an empty array, or no arguments, clears all metadata.
-     *
-     * @param string|array<string, mixed>|null $field Field name, associative array, or null to clear
-     * @param mixed $value Value when $field is a string; null clears all meta
-     */
-    public function setMeta(string|array|null $field = null, mixed $value = null): static
-    {
-        if (is_array($field)) {
-            $this->_meta = $field !== [] ? $field : null;
-        } elseif ($field === null) {
-            $this->_meta = null;
-        } else {
-            $this->_meta ??= [];
-            $this->_meta[$field] = $value;
-        }
-        return $this;
-    }
-
-    /**
-     * Get a specific metadata field or the full metadata array.
-     *
-     * @param string|null $field Field name, or null for the full array
-     * @return mixed
-     */
-    public function getMeta(?string $field = null): mixed
-    {
-        if ($field === null) {
-            return $this->_meta;
-        }
-
-        return $this->_meta[$field] ?? null;
     }
 }
