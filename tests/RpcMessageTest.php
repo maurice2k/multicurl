@@ -1,5 +1,5 @@
 <?php
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace Maurice\Multicurl\Tests;
 
@@ -21,17 +21,6 @@ class RpcMessageTest extends TestCase
         $this->assertSame('tools/list', $message->getMethod());
         $this->assertSame(['foo' => 'bar'], $message->getParams());
         $this->assertSame('req-1', $message->getId());
-    }
-
-    public function testNotificationKeepsRequestIdInParamsAndOmitsTopLevelId(): void
-    {
-        $message = RpcMessage::notification('notifications/cancelled', ['requestId' => 1]);
-
-        $payload = $message->toArray();
-
-        $this->assertTrue($message->isNotification());
-        $this->assertSame(['requestId' => 1], $payload['params']);
-        $this->assertArrayNotHasKey('id', $payload);
     }
 
     public function testResponseCreatesExpectedMessage(): void

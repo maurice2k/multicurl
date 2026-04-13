@@ -1,4 +1,4 @@
-.PHONY: help build up down test test-all test-8.1 test-8.2 test-8.3 test-8.4 test-8.5 unit unit-8.1 unit-8.2 unit-8.3 unit-8.4 unit-8.5 integration integration-8.1 integration-8.2 integration-8.3 integration-8.4 integration-8.5 clean logs
+.PHONY: help build up down test test-all test-8.1 test-8.2 test-8.3 test-8.4 test-8.5 unit unit-8.1 unit-8.2 unit-8.3 unit-8.4 unit-8.5 integration integration-8.1 integration-8.2 integration-8.3 integration-8.4 integration-8.5 phpstan clean logs
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -59,7 +59,10 @@ integration-8.4: up ## Run integration tests only with PHP 8.4
 
 integration-8.5: up ## Run integration tests only with PHP 8.5
 	docker-compose run --build --rm php85 vendor/bin/phpunit --group integration
-	
+
+phpstan: ## Run PHPStan static analysis (PHP 8.4 container)
+	docker-compose run --build --rm php84 vendor/bin/phpstan analyse -c phpstan.neon --memory-limit=512M
+
 logs: ## Show logs from HTTP server
 	docker-compose logs -f httpbin
 
