@@ -1,278 +1,224 @@
 <?php
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace Maurice\Multicurl\Tests;
 
+use InvalidArgumentException;
 use Maurice\Multicurl\Mcp\RpcMessage;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 
 /**
- * Tests for RpcMessage class
+ * Tests the public behavior of RpcMessage.
  */
 class RpcMessageTest extends TestCase
 {
-    public function testSetMetaSingleField(): void
+    public function testRequestCreatesExpectedMessage(): void
     {
-        $message = RpcMessage::request('test/method');
-        
-        // Test setting a single metadata field
-        $message->setMeta('sessionId', 'sess_abc123');
-        
-        $this->assertEquals('sess_abc123', $message->getMeta('sessionId'));
+        $message = RpcMessage::request('tools/list', ['foo' => 'bar'], 'req-1');
+
+        $this->assertTrue($message->isRequest());
+        $this->assertSame('tools/list', $message->getMethod());
+        $this->assertSame(['foo' => 'bar'], $message->getParams());
+        $this->assertSame('req-1', $message->getId());
     }
 
-    public function testSetMetaMultipleFields(): void
+    public function testResponseCreatesExpectedMessage(): void
     {
-        $message = RpcMessage::request('test/method');
-        
-        // Test setting multiple metadata fields
-        $message->setMeta('sessionId', 'sess_abc123');
-        $message->setMeta('userId', 'user_456');
-        $message->setMeta('requestId', 'req_789');
-        
-        $this->assertEquals('sess_abc123', $message->getMeta('sessionId'));
-        $this->assertEquals('user_456', $message->getMeta('userId'));
-        $this->assertEquals('req_789', $message->getMeta('requestId'));
+        $message = RpcMessage::response(['capabilities' => []], '1');
+
+        $this->assertTrue($message->isResponse());
+        $this->assertSame(['capabilities' => []], $message->getResult());
+        $this->assertSame('1', $message->getId());
     }
 
-    public function testGetMetaSpecificField(): void
+    public function testErrorCreatesExpectedMessage(): void
     {
-        $message = RpcMessage::request('test/method');
-        
-        $message->setMeta('sessionId', 'sess_abc123');
-        $message->setMeta('userId', 'user_456');
-        
-        // Test getting specific fields
-        $this->assertEquals('sess_abc123', $message->getMeta('sessionId'));
-        $this->assertEquals('user_456', $message->getMeta('userId'));
+        $message = RpcMessage::error(-32603, 'Internal error', ['detail' => 'x'], '9');
+
+        $this->assertTrue($message->isError());
+        $this->assertSame(-32603, $message->getErrorCode());
+        $this->assertSame('Internal error', $message->getErrorMessage());
+        $this->assertSame(['detail' => 'x'], $message->getError()['data']);
+        $this->assertSame('9', $message->getId());
     }
 
-    public function testGetMetaNonexistentField(): void
+    public function testToolsListRequestUsesEmptyObjectParams(): void
     {
-        $message = RpcMessage::request('test/method');
-        
-        $message->setMeta('sessionId', 'sess_abc123');
-        
-        // Test getting nonexistent field returns null
-        $this->assertNull($message->getMeta('nonexistent'));
+        $message = RpcMessage::toolsListRequest();
+
+        $this->assertTrue($message->isRequest());
+        $this->assertSame('tools/list', $message->getMethod());
+        $this->assertInstanceOf(stdClass::class, $message->getParams());
     }
 
-    public function testGetMetaFullStructure(): void
+    public function testToolsListRequestAcceptsCustomParams(): void
     {
-        $message = RpcMessage::request('test/method');
-        
-        // Test getting full metadata when empty
-        $this->assertNull($message->getMeta());
-        
-        // Add some metadata
-        $message->setMeta('sessionId', 'sess_abc123');
-        $message->setMeta('userId', 'user_456');
-        
-        // Test getting full metadata structure
-        $expected = [
-            'sessionId' => 'sess_abc123',
-            'userId' => 'user_456'
-        ];
-        $this->assertEquals($expected, $message->getMeta());
-    }
-
-    public function testSetMetaOverwriteField(): void
-    {
-        $message = RpcMessage::request('test/method');
-        
-        // Set initial value
-        $message->setMeta('sessionId', 'sess_abc123');
-        $this->assertEquals('sess_abc123', $message->getMeta('sessionId'));
-        
-        // Overwrite with new value
-        $message->setMeta('sessionId', 'sess_xyz789');
-        $this->assertEquals('sess_xyz789', $message->getMeta('sessionId'));
-    }
-
-    public function testSetMetaVariousDataTypes(): void
-    {
-        $message = RpcMessage::request('test/method');
-        
-        // Test various data types
-        $message->setMeta('stringField', 'test_string');
-        $message->setMeta('intField', 42);
-        $message->setMeta('floatField', 3.14);
-        $message->setMeta('boolField', true);
-        $message->setMeta('arrayField', ['key' => 'value']);
-        $message->setMeta('nullField', null);
-        
-        $this->assertEquals('test_string', $message->getMeta('stringField'));
-        $this->assertEquals(42, $message->getMeta('intField'));
-        $this->assertEquals(3.14, $message->getMeta('floatField'));
-        $this->assertTrue($message->getMeta('boolField'));
-        $this->assertEquals(['key' => 'value'], $message->getMeta('arrayField'));
-        $this->assertNull($message->getMeta('nullField'));
-    }
-
-    public function testMetaSerializationToArray(): void
-    {
-        $message = RpcMessage::request('test/method', ['param' => 'value']);
-        $message->setMeta('sessionId', 'sess_abc123');
-        $message->setMeta('userId', 'user_456');
-        
-        $array = $message->toArray();
-        
-        // Verify _meta is included in serialization
-        $this->assertArrayHasKey('_meta', $array);
-        $this->assertEquals([
-            'sessionId' => 'sess_abc123',
-            'userId' => 'user_456'
-        ], $array['_meta']);
-    }
-
-    public function testMetaSerializationToJson(): void
-    {
-        $message = RpcMessage::request('test/method', ['param' => 'value']);
-        $message->setMeta('sessionId', 'sess_abc123');
-        $message->setMeta('userId', 'user_456');
-        
-        $json = $message->toJson();
-        $decoded = json_decode($json, true);
-        
-        // Verify _meta is included in JSON
-        $this->assertArrayHasKey('_meta', $decoded);
-        $this->assertEquals([
-            'sessionId' => 'sess_abc123',
-            'userId' => 'user_456'
-        ], $decoded['_meta']);
-    }
-
-    public function testMetaDeserializationFromArray(): void
-    {
-        $data = [
-            'jsonrpc' => '2.0',
-            'id' => 1,
-            'method' => 'test/method',
-            'params' => ['param' => 'value'],
+        $params = [
             '_meta' => [
-                'sessionId' => 'sess_abc123',
-                'userId' => 'user_456'
-            ]
+                'channel' => 'phone',
+            ],
+            'cursor' => 'next-page',
         ];
-        
-        $message = RpcMessage::fromArray($data);
-        
-        // Verify metadata was parsed correctly
-        $this->assertEquals('sess_abc123', $message->getMeta('sessionId'));
-        $this->assertEquals('user_456', $message->getMeta('userId'));
-        $this->assertEquals([
-            'sessionId' => 'sess_abc123',
-            'userId' => 'user_456'
-        ], $message->getMeta());
+
+        $message = RpcMessage::toolsListRequest(params: $params);
+
+        $this->assertSame($params, $message->getParams());
     }
 
-    public function testMetaDeserializationFromJson(): void
+    public function testPromptsListRequestAcceptsCustomParams(): void
     {
-        $json = '{"jsonrpc":"2.0","id":1,"method":"test/method","params":{"param":"value"},"_meta":{"sessionId":"sess_abc123","userId":"user_456"}}';
-        
-        $message = RpcMessage::fromJson($json);
-        
-        // Verify metadata was parsed correctly
-        $this->assertEquals('sess_abc123', $message->getMeta('sessionId'));
-        $this->assertEquals('user_456', $message->getMeta('userId'));
-        $this->assertEquals([
-            'sessionId' => 'sess_abc123',
-            'userId' => 'user_456'
-        ], $message->getMeta());
+        $params = [
+            '_meta' => [
+                'channel' => 'phone',
+            ],
+            'cursor' => 'next-page',
+        ];
+
+        $message = RpcMessage::promptsListRequest(params: $params);
+
+        $this->assertTrue($message->isRequest());
+        $this->assertSame('prompts/list', $message->getMethod());
+        $this->assertSame($params, $message->getParams());
     }
 
-    public function testMetaRoundTripSerialization(): void
+    public function testToolsCallRequestBuildsExpectedParams(): void
     {
-        // Create message with metadata
-        $original = RpcMessage::toolsCallRequest('search_documents', ['query' => 'test']);
-        $original->setMeta('sessionId', 'sess_abc123');
-        $original->setMeta('userId', 'user_456');
-        $original->setMeta('requestTime', 1640995200);
-        
-        // Serialize to JSON and back
-        $json = $original->toJson();
-        $restored = RpcMessage::fromJson($json);
-        
-        // Verify all metadata is preserved
-        $this->assertEquals($original->getMeta('sessionId'), $restored->getMeta('sessionId'));
-        $this->assertEquals($original->getMeta('userId'), $restored->getMeta('userId'));
-        $this->assertEquals($original->getMeta('requestTime'), $restored->getMeta('requestTime'));
-        $this->assertEquals($original->getMeta(), $restored->getMeta());
+        $message = RpcMessage::toolsCallRequest('my_tool', ['a' => 1], ['type' => 'object']);
+
+        $this->assertSame('tools/call', $message->getMethod());
+        $this->assertSame(
+            [
+                'name' => 'my_tool',
+                'arguments' => ['a' => 1],
+                'outputSchema' => ['type' => 'object'],
+            ],
+            $message->getParams()
+        );
     }
 
-    public function testMetaWithoutMetadata(): void
+    public function testToolsCallRequestOmitsOutputSchemaWhenNotProvided(): void
     {
-        $message = RpcMessage::request('test/method');
-        
-        // Test message without any metadata
-        $this->assertNull($message->getMeta());
-        $this->assertNull($message->getMeta('anyField'));
-        
-        // Verify serialization doesn't include _meta
-        $array = $message->toArray();
-        $this->assertArrayNotHasKey('_meta', $array);
+        $message = RpcMessage::toolsCallRequest('my_tool', ['a' => 1]);
+
+        $this->assertArrayNotHasKey('outputSchema', $message->getParams());
     }
 
-    public function testSetMetaBulkArray(): void
+    public function testInitializeRequestUsesDefaultClientInfoAndEmptyCapabilitiesObject(): void
     {
-        $message = RpcMessage::request('test/method');
+        $message = RpcMessage::initializeRequest();
+        $params = $message->getParams();
 
-        $result = $message->setMeta(['foo' => 'bar', 'baz' => 42]);
-
-        $this->assertSame($message, $result); // returns static
-        $this->assertEquals(['foo' => 'bar', 'baz' => 42], $message->getMeta());
+        $this->assertSame('initialize', $message->getMethod());
+        $this->assertSame('2025-06-18', $params['protocolVersion']);
+        $this->assertSame(
+            [
+                'name' => 'maurice2k/multicurl MCP Client',
+                'version' => '1.0.0',
+            ],
+            $params['clientInfo']
+        );
+        $this->assertInstanceOf(stdClass::class, $params['capabilities']);
     }
 
-    public function testSetMetaBulkArrayReplacesExisting(): void
+    public function testInitializeRequestKeepsProvidedClientInfoAndCapabilities(): void
     {
-        $message = RpcMessage::request('test/method');
-        $message->setMeta('old', 'value');
+        $clientInfo = [
+            'name' => 'Test Client',
+            'version' => '1.2.3',
+        ];
+        $capabilities = [
+            'tools' => ['listChanged' => true],
+            'roots' => ['listChanged' => false],
+        ];
 
-        $message->setMeta(['new' => 'data']);
+        $message = RpcMessage::initializeRequest('2025-06-18', $clientInfo, $capabilities);
 
-        // old key must be gone — array replaces, does not merge
-        $this->assertNull($message->getMeta('old'));
-        $this->assertEquals('data', $message->getMeta('new'));
+        $this->assertSame($clientInfo, $message->getParams()['clientInfo']);
+        $this->assertSame($capabilities, $message->getParams()['capabilities']);
     }
 
-    public function testSetMetaEmptyArrayClearsMeta(): void
+    public function testFromJsonRejectsInvalidJson(): void
     {
-        $message = RpcMessage::request('test/method');
-        $message->setMeta('foo', 'bar');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid JSON');
 
-        $message->setMeta([]);
-
-        $this->assertNull($message->getMeta());
+        RpcMessage::fromJson('{');
     }
 
-    public function testSetMetaNullClearsMeta(): void
+    public function testFromJsonParsesRequestMessage(): void
     {
-        $message = RpcMessage::request('test/method');
-        $message->setMeta('foo', 'bar');
+        $message = RpcMessage::fromJson(
+            '{"jsonrpc":"2.0","method":"tools/list","id":"1","params":{"foo":"bar"}}'
+        );
 
-        $message->setMeta(null);
-
-        $this->assertNull($message->getMeta());
+        $this->assertTrue($message->isRequest());
+        $this->assertSame('tools/list', $message->getMethod());
+        $this->assertSame('1', $message->getId());
+        $this->assertSame(['foo' => 'bar'], $message->getParams());
     }
 
-    public function testSetMetaNoArgsClearsMeta(): void
+    public function testFromArrayRejectsMissingJsonRpcVersion(): void
     {
-        $message = RpcMessage::request('test/method');
-        $message->setMeta('foo', 'bar');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('JSON-RPC version');
 
-        $message->setMeta();
-
-        $this->assertNull($message->getMeta());
+        RpcMessage::fromArray([]);
     }
 
-    public function testSetMetaChaining(): void
+    public function testFromArrayRejectsWrongJsonRpcVersion(): void
     {
-        $message = RpcMessage::request('test/method');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('JSON-RPC version');
 
-        $result = $message->setMeta('a', 1)->setMeta('b', 2);
+        RpcMessage::fromArray([
+            'jsonrpc' => '1.0',
+            'id' => 1,
+            'result' => null,
+        ]);
+    }
 
-        $this->assertSame($message, $result);
-        $this->assertEquals(1, $message->getMeta('a'));
-        $this->assertEquals(2, $message->getMeta('b'));
+    public function testFromArrayParsesNotificationMessage(): void
+    {
+        $message = RpcMessage::fromArray([
+            'jsonrpc' => '2.0',
+            'method' => 'notifications/initialized',
+            'params' => ['status' => 'ready'],
+        ]);
+
+        $this->assertTrue($message->isNotification());
+        $this->assertSame('notifications/initialized', $message->getMethod());
+        $this->assertNull($message->getId());
+        $this->assertSame(['status' => 'ready'], $message->getParams());
+    }
+
+    public function testFromArrayParsesResponseMessage(): void
+    {
+        $message = RpcMessage::fromArray([
+            'jsonrpc' => '2.0',
+            'id' => 2,
+            'result' => ['x' => 1],
+        ]);
+
+        $this->assertTrue($message->isResponse());
+        $this->assertSame(2, $message->getId());
+        $this->assertSame(['x' => 1], $message->getResult());
+    }
+
+    public function testFromArrayParsesErrorMessage(): void
+    {
+        $message = RpcMessage::fromArray([
+            'jsonrpc' => '2.0',
+            'id' => 3,
+            'error' => [
+                'code' => -32600,
+                'message' => 'Invalid Request',
+            ],
+        ]);
+
+        $this->assertTrue($message->isError());
+        $this->assertSame(3, $message->getId());
+        $this->assertSame(-32600, $message->getErrorCode());
+        $this->assertSame('Invalid Request', $message->getErrorMessage());
     }
 }
