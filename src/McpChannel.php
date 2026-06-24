@@ -447,11 +447,13 @@ class McpChannel extends HttpChannel
      * @param array<string, mixed>|null $clientInfo Optional client info to use in initialization
      * @param array<string, mixed>|null $capabilities Optional capabilities to use in initialization
      * @param \Closure(?string): void|null $onInitializedCallback Optional callback called upon successful initialization with session ID
+     * @param (\Closure(RpcMessage, self): ?RpcMessage)|null $preInitRequestCallback Optional callback to adjust the initialize request
      */
     public function setAutomaticInitialize(
         ?array $clientInfo = null,
         ?array $capabilities = null,
-        ?\Closure $onInitializedCallback = null
+        ?\Closure $onInitializedCallback = null,
+        ?\Closure $preInitRequestCallback = null
     ): void {
         // Create the initialization channel that will be executed when needed
         $this->initializeChannel = clone $this;
@@ -460,6 +462,14 @@ class McpChannel extends HttpChannel
             $clientInfo,
             $capabilities
         );
+
+        if ($preInitRequestCallback !== null) {
+            $callbackResult = $preInitRequestCallback($initializeRequest, $this->initializeChannel);
+            if ($callbackResult instanceof RpcMessage) {
+                $initializeRequest = $callbackResult;
+            }
+        }
+
         $this->initializeChannel->setRpcMessage($initializeRequest);
 
         // Set up the initialization callback

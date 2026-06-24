@@ -44,6 +44,34 @@ class McpChannelTest extends TestCase
         $this->assertNull($nextChannel, 'Next channel should not be set until response is received');
     }
 
+    public function testPreInitRequestCallbackCanAddChannelMeta(): void
+    {
+        $mainChannel = new McpChannel('file:///dev/null', RpcMessage::toolsListRequest());
+
+        $mainChannel->setAutomaticInitialize(
+            preInitRequestCallback: function (RpcMessage $message, McpChannel $channel): ?RpcMessage {
+                if ($message->getMethod() !== 'initialize') {
+                    return null;
+                }
+
+                $params = $message->getParams();
+                assert(is_array($params));
+
+                $params['_meta'] = ['channel' => 'phone'];
+
+                return RpcMessage::request('initialize', $params, $message->getId());
+            }
+        );
+
+        $initChannel = $mainChannel->popBeforeChannel();
+        $this->assertNotNull($initChannel);
+        assert($initChannel instanceof McpChannel);
+
+        $params = $initChannel->getRpcMessage()->getParams();
+        $this->assertIsArray($params);
+        $this->assertSame(['channel' => 'phone'], $params['_meta']);
+    }
+
     /**
      * Test the execution flow of setAutomaticInitialize
      */
@@ -201,6 +229,7 @@ class McpChannelTest extends TestCase
         // Verify that the exception was caught by the main channel's handler
         $this->assertTrue($exceptionWasCaught, 'Exception was not forwarded to the main channel');
         $this->assertNotNull($caughtException, 'No exception was caught by the main channel handler');
+        $this->assertInstanceOf(\Exception::class, $caughtException);
         $this->assertStringContainsString('Test initialization exception', $caughtException->getMessage(),
             'Original exception message not present in the forwarded exception');
     }
@@ -776,6 +805,7 @@ class McpChannelTest extends TestCase
             $channel->onReady([], '', new Manager());
 
             $this->assertNotNull($errorMessage, "Expected error for HTTP {$statusCode}");
+            $this->assertIsString($errorMessage);
             $this->assertStringContainsString((string)$statusCode, $errorMessage);
             $this->assertEquals(CURLE_HTTP_RETURNED_ERROR, $errorCode);
         }
